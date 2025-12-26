@@ -1,32 +1,32 @@
 import { neon, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 
-// 1. Configure caching safely
-try {
-  neonConfig.fetchConnectionCache = true;
-} catch (err) {
-  console.warn("Failed to set neonConfig cache (non-critical):", err);
-}
+// 1. WebSocket Fix for Vercel/Node environment
+neonConfig.webSocketConstructor = ws;
+neonConfig.fetchConnectionCache = true;
 
-// 2. Helper to check config
 const getDbUrl = () => {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error("CRITICAL: DATABASE_URL Environment Variable is missing.");
-    throw new Error("Database configuration error");
+    throw new Error("DATABASE_URL is missing from Environment Variables.");
   }
   return url;
 };
 
-// 3. Robust SQL Executor
+// 2. RESTORED: This is the function api/health.ts was looking for
+export const getSql = () => {
+  const databaseUrl = getDbUrl();
+  return neon(databaseUrl);
+};
+
+// 3. Standard SQL tag function
 export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
   try {
-    const databaseUrl = getDbUrl();
-    const query = neon(databaseUrl);
+    const query = getSql();
     return await query(strings, ...values);
   } catch (error: any) {
     console.error("Database Query Failed:", error);
-    // Rethrow so the API handler can catch it and send a 500 response
-    throw new Error(`Database Error: ${error.message}`);
+    throw error; 
   }
 };
 
@@ -41,15 +41,11 @@ export const getSafeBody = (req: any) => {
 };
 
 export const apiError = (res: any, error: any, context: string) => {
-  console.error(`[Server Error - ${context}]:`, error);
-  const message = error instanceof Error ? error.message : "Unknown error occurred";
-  
-  // Ensure we don't crash if res.status is undefined (edge case)
+  console.error(`[${context} Error]:`, error);
   if (res && typeof res.status === 'function') {
     return res.status(500).json({ 
-      error: message, 
-      context,
-      ok: false 
+      error: error.message || "Internal Server Error", 
+      context 
     });
   }
 };
