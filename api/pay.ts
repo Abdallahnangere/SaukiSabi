@@ -1,31 +1,31 @@
 
-import { sql, parseBody, apiError, sendResponse } from './db';
+import { sql, getBody, sendJson, reportError } from './db';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const body = parseBody(req);
-    const { amount, email, name, txRef, phone, details, type } = body;
+    const { amount, email, name, txRef, phone, details, type } = getBody(req);
     const fwKey = process.env.FLUTTERWAVE_SECRET_KEY;
 
     // 1. Validate Environment
     if (!fwKey) {
-      return sendResponse(res, 500, { error: "Payment Gateway not configured (Key Missing)." });
+      return sendJson(res, 500, { error: "FLUTTERWAVE_SECRET_KEY is missing on server." });
     }
 
-    // 2. Contact Flutterwave (Server-to-Server)
-    console.log(`Initiating Flutterwave for ${email}...`);
+    // 2. Request Virtual Account from Flutterwave
+    // We do this BEFORE DB operations to ensure payment always works.
     const fwRes = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${fwKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
-        email: email || 'user@saukimart.com',
+        email: email || 'customer@saukimart.com',
         is_permanent: false,
-        amount,
+        amount: amount,
         tx_ref: txRef,
         phonenumber: phone,
         firstname: name?.split(' ')[0] || 'Sauki',
@@ -36,8 +36,9 @@ export default async function handler(req: any, res: any) {
     const fwData = await fwRes.json();
 
     if (!fwRes.ok) {
-      console.error("Flutterwave Rejected:", fwData);
-      return sendResponse(res, 400, { error: fwData.message || "Payment Gateway Error" });
+      return sendJson(res, 400, { 
+        error: fwData.message || "Flutterwave rejected account generation." 
+      });
     }
 
     const paymentInfo = {
@@ -47,19 +48,19 @@ export default async function handler(req: any, res: any) {
       amount: amount
     };
 
-    // 3. Log to Database
+    // 3. Try to log to database (Non-blocking)
+    // If DB fails, the user still gets their payment info.
     try {
-      const txId = `tx_${Date.now()}`;
       await sql`
         INSERT INTO transactions (id, reference, type, amount, status, timestamp, phone, details, paymentDetails)
-        VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${Date.now()}, ${phone}, ${details}, ${JSON.stringify(paymentInfo)})
+        VALUES (${`tx_${Date.now()}`}, ${txRef}, ${type}, ${amount}, 'PENDING', ${Date.now()}, ${phone}, ${details}, ${JSON.stringify(paymentInfo)})
       `;
     } catch (dbErr) {
-      console.warn("DB logging failed, but payment account generated.", dbErr);
+      console.warn("Payment info generated but DB logging failed:", dbErr);
     }
 
-    return sendResponse(res, 200, paymentInfo);
-  } catch (error: any) {
-    return apiError(res, error, "PaymentInitiation");
+    return sendJson(res, 200, paymentInfo);
+  } catch (err: any) {
+    return reportError(res, err, "PaymentProxy");
   }
 }

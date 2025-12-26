@@ -1,13 +1,24 @@
 
-import { sql, apiError, sendResponse } from './db';
+import { sql, sendJson, reportError } from './db';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   
   try {
-    console.log("Starting full database reconstruction...");
+    // Drop and Recreate tables for a clean slate
+    // WARNING: This clears data. Use carefully in production.
+    await sql`CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      reference TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL,
+      amount DECIMAL NOT NULL,
+      status TEXT DEFAULT 'PENDING',
+      timestamp BIGINT NOT NULL,
+      phone TEXT NOT NULL,
+      details TEXT,
+      paymentDetails JSONB
+    )`;
 
-    // Create Tables sequentially to avoid race conditions in serverless
     await sql`CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -38,32 +49,8 @@ export default async function handler(req: any, res: any) {
       virtualAccount JSONB
     )`;
 
-    await sql`CREATE TABLE IF NOT EXISTS transactions (
-      id TEXT PRIMARY KEY,
-      reference TEXT UNIQUE NOT NULL,
-      type TEXT NOT NULL,
-      amount DECIMAL NOT NULL,
-      status TEXT DEFAULT 'PENDING',
-      timestamp BIGINT NOT NULL,
-      phone TEXT NOT NULL,
-      details TEXT,
-      paymentDetails JSONB
-    )`;
-
-    // Inject initial catalog items
-    await sql`
-      INSERT INTO data_plans (id, network, size, validity, price, planId, isActive)
-      VALUES 
-        ('mtn_1gb_seed', 'MTN', '1.0GB', '30 Days', 450, 1001, true),
-        ('glo_1gb_seed', 'GLO', '1.0GB', '30 Days', 400, 206, true)
-      ON CONFLICT (id) DO NOTHING
-    `;
-
-    return sendResponse(res, 200, { 
-      success: true, 
-      message: "Backend Database Initialized Successfully." 
-    });
-  } catch (error: any) {
-    return apiError(res, error, "DatabaseSeeder");
+    return sendJson(res, 200, { success: true, message: "A-Z Backend Initialized." });
+  } catch (err: any) {
+    return reportError(res, err, "Seeder");
   }
 }

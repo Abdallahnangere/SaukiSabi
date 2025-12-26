@@ -1,6 +1,6 @@
 
-// Use parseBody instead of non-existent getSafeBody
-import { sql, parseBody, apiError } from './db';
+// Use getBody instead of non-existent parseBody
+import { sql, getBody, reportError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -13,8 +13,8 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      // Use parseBody instead of non-existent getSafeBody
-      const body = parseBody(req);
+      // Use getBody instead of non-existent parseBody
+      const body = getBody(req);
       const { id, network, size, validity, price, planId } = body;
       
       if (!id || !network || !size || !price) return res.status(400).json({ error: "Missing required fields" });
@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).end();
   } catch (error: any) {
-    // Corrected sendError to apiError
-    return apiError(res, error, "Plans");
+    // Corrected apiError to reportError
+    return reportError(res, error, "Plans");
   }
 }

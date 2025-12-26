@@ -1,51 +1,44 @@
 
 import { neon, neonConfig } from '@neondatabase/serverless';
 
-// Essential for Vercel/Serverless stability
+// Essential for serverless stability
 neonConfig.fetchConnectionCache = true;
 
 const connectionString = process.env.DATABASE_URL;
 
 /**
- * Robust Database Client Singleton
+ * Returns a Neon SQL instance or null if not configured.
+ * This prevents the entire server from crashing on boot.
  */
-let client: any = null;
-
 export const getSql = () => {
   if (!connectionString) {
-    throw new Error("DATABASE_URL is missing. Check Vercel Environment Variables.");
+    console.error("CRITICAL: DATABASE_URL is not defined in environment variables.");
+    return null;
   }
-  if (!client) {
-    client = neon(connectionString);
-  }
-  return client;
+  return neon(connectionString);
 };
 
 /**
- * Global SQL execution utility with auto-logging
+ * Executes SQL with a safety wrapper.
  */
 export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
-  try {
-    const db = getSql();
-    return await db(strings, ...values);
-  } catch (err: any) {
-    console.error(`[DB_EXEC_ERROR]: ${err.message}`);
-    throw err;
-  }
+  const db = getSql();
+  if (!db) throw new Error("Database connection not configured.");
+  return await db(strings, ...values);
 };
 
 /**
- * Standardized JSON API Response Helper
+ * Ensures we always return JSON, even in a total crash.
  */
-export const sendResponse = (res: any, status: number, data: any) => {
+export const sendJson = (res: any, status: number, data: any) => {
   res.setHeader('Content-Type', 'application/json');
   return res.status(status).json(data);
 };
 
 /**
- * Reliable Body Parser for Vercel Functions
+ * Robustly parses request body for Vercel environments.
  */
-export const parseBody = (req: any) => {
+export const getBody = (req: any) => {
   if (req.body && typeof req.body === 'object') return req.body;
   try {
     return req.body ? JSON.parse(req.body) : {};
@@ -55,14 +48,13 @@ export const parseBody = (req: any) => {
 };
 
 /**
- * Universal API Error Handler
+ * Standard error logger and responder.
  */
-export const apiError = (res: any, error: any, context: string) => {
-  console.error(`[API_CRASH][${context}]:`, error);
-  return sendResponse(res, 500, {
+export const reportError = (res: any, error: any, context: string) => {
+  console.error(`[${context} ERROR]:`, error.message || error);
+  return sendJson(res, 500, {
     success: false,
-    error: error.message || "Internal Server Error",
-    context,
-    timestamp: Date.now()
+    error: error.message || "Unknown Server Error",
+    context
   });
 };

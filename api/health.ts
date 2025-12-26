@@ -1,26 +1,29 @@
 
-import { getSql, sendResponse } from './db';
+import { getSql, sendJson } from './db';
 
 export default async function handler(req: any, res: any) {
-  try {
-    const start = Date.now();
-    let dbStatus = 'Offline';
-    
-    try {
-      const db = getSql();
-      const check = await db`SELECT 1 as active`;
-      if (check[0].active === 1) dbStatus = 'Connected';
-    } catch (e: any) {
-      dbStatus = `Error: ${e.message}`;
-    }
+  const db = getSql();
+  const dbConfigured = !!db;
+  const fwConfigured = !!process.env.FLUTTERWAVE_SECRET_KEY;
+  const amigoConfigured = !!process.env.AMIGO_API_KEY;
 
-    return sendResponse(res, 200, {
-      status: 'Ready',
-      database: dbStatus,
-      latency: `${Date.now() - start}ms`,
-      timestamp: new Date().toISOString()
-    });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+  let dbWorking = false;
+  if (db) {
+    try {
+      await db`SELECT 1`;
+      dbWorking = true;
+    } catch (e) {
+      dbWorking = false;
+    }
   }
+
+  return sendJson(res, 200, {
+    status: "Service Active",
+    config: {
+      database: dbConfigured ? (dbWorking ? "Connected" : "Configured but failing connection") : "Missing DATABASE_URL",
+      flutterwave: fwConfigured ? "Ready" : "Missing FLUTTERWAVE_SECRET_KEY",
+      amigo: amigoConfigured ? "Ready" : "Missing AMIGO_API_KEY"
+    },
+    version: "1.2.0-atox"
+  });
 }
