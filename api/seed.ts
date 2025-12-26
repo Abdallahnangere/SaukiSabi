@@ -1,26 +1,26 @@
 
-import { sql } from './db';
+import { sql, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   
   try {
-    // 1. Seed MTN Plan ID 1001
+    // 1. Seed Mandatory MTN Plan (ID: 1001)
     await sql`
-      INSERT INTO data_plans (id, network, size, validity, price, planId)
-      VALUES ('seed_mtn_1gb', 'MTN', '1.0GB', '30 Days', 450, 1001)
-      ON CONFLICT (id) DO UPDATE SET price = 450, planId = 1001
+      INSERT INTO data_plans (id, network, size, validity, price, planId, isActive)
+      VALUES ('seed_mtn_1gb_1001', 'MTN', '1.0GB', '30 Days', 450, 1001, true)
+      ON CONFLICT (id) DO UPDATE SET price = 450, planId = 1001, isActive = true
     `;
 
-    // 2. Seed Default Product
+    // 2. Seed High-Value Hardware
     await sql`
       INSERT INTO products (id, name, description, specifications, price, imageUrl, inStock)
-      VALUES ('seed_router', 'MTN 5G Router Pro', 'Industrial grade connectivity', '["5G Support", "Wi-Fi 6"]', 55000, '/router.png', true)
-      ON CONFLICT (id) DO UPDATE SET price = 55000
+      VALUES ('seed_router_pro', 'MTN 5G Router Pro', 'Industrial grade 5G broadband connectivity.', '["Wi-Fi 6", "Gigabit Port"]', 55000, '/router.png', true)
+      ON CONFLICT (id) DO UPDATE SET price = 55000, inStock = true
     `;
 
-    res.status(200).json({ success: true, message: "Database seeded with MTN 1001 Plan" });
+    return res.status(200).json({ success: true, message: "System initialized with authoritative data (MTN 1001 included)." });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return apiError(res, error, "Seeder");
   }
 }

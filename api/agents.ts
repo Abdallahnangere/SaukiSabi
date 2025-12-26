@@ -1,5 +1,5 @@
 
-import { sql, getSafeBody } from './db';
+import { sql, getSafeBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -10,26 +10,33 @@ export default async function handler(req: any, res: any) {
     
     if (req.method === 'POST') {
       const body = getSafeBody(req);
-      const { id, fullName, phone, pin, status, walletBalance, virtualAccount } = body;
+      const { id, fullName, phone, pin } = body;
       
-      if (!id || !fullName || !phone || !pin) {
-        return res.status(400).json({ error: 'Missing required identity fields' });
-      }
+      if (!id || !fullName || !phone || !pin) return res.status(400).json({ error: "Required: id, name, phone, pin" });
 
       await sql`
-        INSERT INTO agents (id, fullName, phone, pin, status, walletBalance, virtualAccount)
-        VALUES (${id}, ${fullName}, ${phone}, ${pin}, ${status || 'PENDING'}, ${walletBalance || 0}, ${JSON.stringify(virtualAccount || null)})
-        ON CONFLICT (id) DO UPDATE SET 
-          status = EXCLUDED.status, 
-          walletBalance = EXCLUDED.walletBalance, 
-          virtualAccount = EXCLUDED.virtualAccount
+        INSERT INTO agents (id, fullName, phone, pin, status, walletBalance)
+        VALUES (${id}, ${fullName}, ${phone}, ${pin}, 'PENDING', 0)
+      `;
+      return res.status(200).json({ success: true });
+    }
+
+    if (req.method === 'PATCH') {
+      const body = getSafeBody(req);
+      const { id, status, virtualAccount, walletBalance } = body;
+      await sql`
+        UPDATE agents SET 
+          status = COALESCE(${status}, status),
+          virtualAccount = COALESCE(${JSON.stringify(virtualAccount)}, virtualAccount),
+          walletBalance = COALESCE(${walletBalance}, walletBalance)
+        WHERE id = ${id}
       `;
       return res.status(200).json({ success: true });
     }
 
     res.status(405).end();
   } catch (error: any) {
-    console.error("API Error [Agents]:", error);
-    res.status(500).json({ error: error.message });
+    // Corrected sendError to apiError
+    return apiError(res, error, "Agents");
   }
 }

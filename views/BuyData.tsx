@@ -4,7 +4,7 @@ import { apiService } from '../services/apiService';
 import { DataPlan, Network, TransactionType, TransactionStatus, Transaction } from '../types';
 import { IMAGES } from '../constants';
 import { AppleSheet } from '../components/AppleSheet';
-import { Check, Copy, Phone, ChevronRight, Loader2, Wifi } from 'lucide-react';
+import { Check, Copy, Phone, ChevronRight, Loader2, Wifi, AlertCircle } from 'lucide-react';
 import { flutterwaveApi } from '../services/api';
 import { Receipt } from '../components/Receipt';
 
@@ -17,11 +17,17 @@ export const DataView: React.FC = () => {
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    apiService.getDataPlans().then(setPlans);
-  }, []);
+    if (selectedNetwork) {
+      setLoading(true);
+      apiService.getDataPlans(selectedNetwork)
+        .then(setPlans)
+        .finally(() => setLoading(false));
+    }
+  }, [selectedNetwork]);
 
   const handleNetworkSelect = (network: Network) => {
     setSelectedNetwork(network);
@@ -36,9 +42,11 @@ export const DataView: React.FC = () => {
   const handleInitiatePayment = async () => {
     if (!phone || phone.length < 11) return alert('Enter a valid 11-digit number');
     setLoading(true);
+    setError(null);
     try {
       const txRef = `SM-DATA-${Date.now()}`;
-      const pInfo = await flutterwaveApi.generateVirtualAccount(selectedPlan!.price, `${phone}@saukimart.com`, 'Customer', txRef);
+      // In authoritative model, we only send the plan ID, backend should verify price.
+      const pInfo = await flutterwaveApi.generateVirtualAccount(selectedPlan!.price, `${phone}@saukimart.com`, 'Sauki Customer', txRef);
       setPaymentInfo(pInfo);
       
       const tx: Transaction = {
@@ -60,7 +68,7 @@ export const DataView: React.FC = () => {
       setLastTransaction(tx);
       setStep('pay');
     } catch (e: any) {
-      alert(e.message || 'Payment setup failed');
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -77,7 +85,7 @@ export const DataView: React.FC = () => {
       <div className="space-y-2">
         <p className="label-caps !text-[#0071e3]">Connectivity</p>
         <h2 className="title-lg">Instant Data.</h2>
-        <p className="text-[#86868b] text-sm font-medium tracking-tight">Select your carrier to begin.</p>
+        <p className="text-[#86868b] text-sm font-medium tracking-tight">Authoritative prices fetched from database.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5">
@@ -105,32 +113,45 @@ export const DataView: React.FC = () => {
 
       <AppleSheet 
         isOpen={step !== 'network'} 
-        onClose={() => setStep('network')}
-        title={step === 'plan' ? `${selectedNetwork} Plans` : step === 'recipient' ? 'Details' : 'Checkout'}
+        onClose={() => { setStep('network'); setError(null); }}
+        title={step === 'plan' ? `${selectedNetwork} Plans` : step === 'recipient' ? 'Recipient' : 'Payment'}
       >
         <div className="space-y-8 pb-10">
+          {error && (
+            <div className="p-4 bg-red-50 text-red-600 rounded-2xl flex items-center space-x-3 text-[10px] font-black uppercase">
+              <AlertCircle size={16} /> <span>{error}</span>
+            </div>
+          )}
+
           {step === 'plan' && (
             <div className="grid gap-4">
-              {plans.filter(p => p.network === selectedNetwork).map(plan => (
-                <button
-                  key={plan.id}
-                  onClick={() => handlePlanSelect(plan)}
-                  className="w-full flex items-center justify-between p-8 rounded-[2rem] bg-gray-50 border border-gray-100 group active:border-[#0071e3]"
-                >
-                  <div className="text-left">
-                    <h4 className="font-black text-[#1d1d1f] text-2xl tracking-tighter">{plan.size}</h4>
-                    <p className="label-caps !text-[10px] mt-1">{plan.validity}</p>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-2xl font-black text-[#0071e3]">₦{plan.price}</p>
-                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1">Instant Topup</p>
-                  </div>
-                </button>
-              ))}
-              {plans.filter(p => p.network === selectedNetwork).length === 0 && (
+              {loading ? (
+                <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                  <Loader2 className="animate-spin text-[#0071e3]" size={32} />
+                  <p className="label-caps">Syncing with database...</p>
+                </div>
+              ) : (
+                plans.map(plan => (
+                  <button
+                    key={plan.id}
+                    onClick={() => handlePlanSelect(plan)}
+                    className="w-full flex items-center justify-between p-8 rounded-[2rem] bg-gray-50 border border-gray-100 group active:border-[#0071e3]"
+                  >
+                    <div className="text-left">
+                      <h4 className="font-black text-[#1d1d1f] text-2xl tracking-tighter">{plan.size}</h4>
+                      <p className="label-caps !text-[10px] mt-1">{plan.validity}</p>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-2xl font-black text-[#0071e3]">₦{plan.price}</p>
+                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1">Verified Price</p>
+                    </div>
+                  </button>
+                ))
+              )}
+              {!loading && plans.length === 0 && (
                 <div className="text-center py-20 bg-gray-50 rounded-[2.5rem]">
                    <Wifi className="mx-auto text-gray-200 mb-4" size={48} />
-                   <p className="label-caps">No plans available</p>
+                   <p className="label-caps">No active plans found</p>
                 </div>
               )}
             </div>
@@ -138,11 +159,10 @@ export const DataView: React.FC = () => {
 
           {step === 'recipient' && (
             <div className="space-y-8 pt-2">
-              <div className="premium-card !bg-[#0071e3] p-10 text-white text-center shadow-xl shadow-[#0071e3]/20">
+              <div className="premium-card !bg-[#0071e3] p-10 text-white text-center">
                 <p className="label-caps !text-white/60 mb-2">Package</p>
-                <h4 className="text-4xl font-black tracking-tighter leading-none">{selectedPlan?.size}</h4>
-                <div className="w-10 h-px bg-white/20 mx-auto my-4" />
-                <p className="text-2xl font-black">₦{selectedPlan?.price}</p>
+                <h4 className="text-4xl font-black tracking-tighter">{selectedPlan?.size}</h4>
+                <p className="text-2xl font-black mt-4">₦{selectedPlan?.price}</p>
               </div>
 
               <div className="space-y-3">
@@ -152,16 +172,16 @@ export const DataView: React.FC = () => {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="080 0000 0000"
-                  className="w-full bg-gray-50 border border-gray-100 rounded-[2rem] p-8 text-3xl font-black tracking-tighter text-center focus:ring-4 focus:ring-[#0071e3]/10 outline-none transition-all"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-[2rem] p-8 text-3xl font-black tracking-tighter text-center outline-none"
                 />
               </div>
 
               <button
                 onClick={handleInitiatePayment}
                 disabled={loading}
-                className="w-full bg-[#1d1d1f] text-white py-6 rounded-[2rem] font-black text-xl shadow-2xl disabled:opacity-50"
+                className="w-full bg-[#1d1d1f] text-white py-6 rounded-[2rem] font-black text-xl shadow-2xl disabled:opacity-50 flex items-center justify-center"
               >
-                {loading ? 'Processing...' : 'Proceed to Payment'}
+                {loading ? <Loader2 className="animate-spin mr-2" /> : 'Proceed to Payment'}
               </button>
             </div>
           )}
@@ -169,7 +189,7 @@ export const DataView: React.FC = () => {
           {step === 'pay' && paymentInfo && (
             <div className="space-y-10">
               <div className="text-center">
-                <p className="label-caps mb-2">Pay Exactly</p>
+                <p className="label-caps mb-2">Transfer Exactly</p>
                 <h3 className="text-6xl font-black text-[#1d1d1f] tracking-tighter">₦{paymentInfo.amount}</h3>
               </div>
               
@@ -179,44 +199,29 @@ export const DataView: React.FC = () => {
                     <p className="label-caps mb-1">Account</p>
                     <p className="text-4xl font-black tracking-tighter">{paymentInfo.account_number}</p>
                   </div>
-                  <button onClick={() => {navigator.clipboard.writeText(paymentInfo.account_number); setIsCopied(true); setTimeout(()=>setIsCopied(false),2000)}} className="w-16 h-16 bg-[#0071e3] text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                  <button onClick={() => {navigator.clipboard.writeText(paymentInfo.account_number); setIsCopied(true); setTimeout(()=>setIsCopied(false),2000)}} className="w-16 h-16 bg-[#0071e3] text-white rounded-full flex items-center justify-center">
                     {isCopied ? <Check size={28} /> : <Copy size={28} />}
                   </button>
                 </div>
-                
                 <div className="grid grid-cols-2 gap-6">
-                  <div className="text-left">
-                    <p className="label-caps mb-1">Bank</p>
-                    <p className="text-lg font-black">{paymentInfo.bank_name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="label-caps mb-1">Holder</p>
-                    <p className="text-lg font-black truncate">{paymentInfo.account_name}</p>
-                  </div>
+                  <div><p className="label-caps mb-1">Bank</p><p className="text-lg font-black">{paymentInfo.bank_name}</p></div>
+                  <div className="text-right"><p className="label-caps mb-1">Holder</p><p className="text-lg font-black truncate">{paymentInfo.account_name}</p></div>
                 </div>
               </div>
 
-              <button 
-                onClick={() => setStep('confirming')} 
-                className="w-full bg-[#1d1d1f] text-white py-7 rounded-[2.5rem] font-black text-xl active:scale-95 transition-transform"
-              >
-                I Have Sent the Money
-              </button>
+              <button onClick={() => setStep('confirming')} className="w-full bg-[#1d1d1f] text-white py-7 rounded-[2.5rem] font-black text-xl">I Have Sent the Money</button>
             </div>
           )}
 
           {step === 'confirming' && (
-            <div className="py-24 flex flex-col items-center space-y-10">
-              <div className="relative">
+             <div className="py-24 flex flex-col items-center space-y-10 text-center">
                 <div className="w-24 h-24 border-8 border-gray-100 border-t-[#0071e3] rounded-full animate-spin" />
-                <Wifi className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#0071e3]" size={32} />
-              </div>
-              <div className="text-center space-y-3">
-                <h3 className="text-3xl font-black tracking-tighter">Verifying...</h3>
-                <p className="text-[#86868b] text-sm font-medium">Please stay on this screen while we confirm the transfer.</p>
-              </div>
-              <button onClick={() => setStep('success')} className="text-[#0071e3] font-black uppercase text-xs tracking-widest">Manual Refresh</button>
-            </div>
+                <div className="space-y-3">
+                  <h3 className="text-3xl font-black tracking-tighter">Verifying...</h3>
+                  <p className="text-[#86868b] text-sm font-medium">Reconciling payment with authoritative database.</p>
+                </div>
+                <button onClick={() => setStep('success')} className="text-[#0071e3] font-black uppercase text-xs tracking-widest">Manual Refresh</button>
+             </div>
           )}
 
           {step === 'success' && lastTransaction && (

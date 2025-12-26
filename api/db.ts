@@ -1,12 +1,25 @@
 
 import { neon } from '@neondatabase/serverless';
 
-if (!process.env.DATABASE_URL) {
-  console.warn("CRITICAL: DATABASE_URL is missing from Environment Variables.");
-}
+const databaseUrl = process.env.DATABASE_URL;
 
-// Direct SQL driver is used instead of Prisma for faster cold starts and zero-config deployment.
-export const sql = neon(process.env.DATABASE_URL || "");
+// Lazy-loaded SQL client to prevent crash if env var is missing during build/cold-start
+let sqlClient: any = null;
+
+export const getSql = () => {
+  if (!sqlClient) {
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL environment variable is missing.");
+    }
+    sqlClient = neon(databaseUrl);
+  }
+  return sqlClient;
+};
+
+// Proxied sql object to maintain the existing API
+export const sql = (strings: TemplateStringsArray, ...values: any[]) => {
+  return getSql()(strings, ...values);
+};
 
 export const getSafeBody = (req: any) => {
   if (!req.body) return {};
@@ -14,14 +27,21 @@ export const getSafeBody = (req: any) => {
     if (typeof req.body === 'string') return JSON.parse(req.body);
     return req.body;
   } catch (e) {
-    console.error("Body Parse Error:", e);
+    console.error("JSON Parse Error in Request Body:", e);
     return {};
   }
 };
 
 export const apiError = (res: any, error: any, context: string) => {
-  console.error(`[${context}] Error:`, error);
-  const status = error.code === '23505' ? 409 : 500; // 409 for unique constraint (duplicate phone)
-  const message = error.code === '23505' ? "Record already exists (e.g. Phone number taken)" : error.message;
-  return res.status(status).json({ error: message, context });
+  console.error(`[API Error - ${context}]:`, error);
+  const status = error.code === '23505' ? 409 : 500;
+  const message = error.code === '23505' 
+    ? "Conflicting data (e.g., ID or phone number already exists)." 
+    : (error.message || "Internal Server Error");
+  
+  return res.status(status).json({ 
+    error: message, 
+    context,
+    details: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+  });
 };

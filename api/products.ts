@@ -1,5 +1,5 @@
 
-import { sql, getSafeBody } from './db';
+import { sql, getSafeBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -38,7 +38,6 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).end();
   } catch (error: any) {
-    console.error("API Error [Products]:", error);
-    res.status(500).json({ error: error.message });
+    return apiError(res, error, "Products");
   }
 }

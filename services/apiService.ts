@@ -4,16 +4,22 @@ import { Product, DataPlan, Agent, Transaction } from '../types';
 const API_BASE = '/api';
 
 const handleResponse = async (res: Response) => {
-  const data = await res.json().catch(() => null);
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    // If we get a 404, it might be the HTML of a 404 page. Log the first bit to see what it is.
+    throw new Error(`Critical Server Failure: ${res.status} - ${res.statusText || 'Not Found'}. Body: ${text.substring(0, 100)}`);
+  }
+  
   if (!res.ok) {
-    const msg = data?.error || data?.message || `Request failed (${res.status})`;
-    throw new Error(msg);
+    throw new Error(data?.error || data?.message || `API Error ${res.status}: ${res.statusText}`);
   }
   return data;
 };
 
 export const apiService = {
-  // Health & System
   async getHealth(): Promise<any> {
     const res = await fetch(`${API_BASE}/health`);
     return handleResponse(res);
@@ -24,24 +30,14 @@ export const apiService = {
     return handleResponse(res);
   },
 
-  // Products
   async getProducts(): Promise<Product[]> {
     const res = await fetch(`${API_BASE}/products`);
     return handleResponse(res);
   },
 
-  async updateProduct(product: Product): Promise<void> {
-    const res = await fetch(`${API_BASE}/products`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
-    });
-    await handleResponse(res);
-  },
-
-  // Plans
-  async getDataPlans(): Promise<DataPlan[]> {
-    const res = await fetch(`${API_BASE}/plans`);
+  async getDataPlans(network?: string): Promise<DataPlan[]> {
+    const url = network ? `${API_BASE}/plans?network=${network}` : `${API_BASE}/plans`;
+    const res = await fetch(url);
     return handleResponse(res);
   },
 
@@ -59,13 +55,12 @@ export const apiService = {
     await handleResponse(res);
   },
 
-  // Agents
   async getAgents(): Promise<Agent[]> {
     const res = await fetch(`${API_BASE}/agents`);
     return handleResponse(res);
   },
 
-  async saveAgent(agent: Agent): Promise<void> {
+  async saveAgent(agent: any): Promise<void> {
     const res = await fetch(`${API_BASE}/agents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,9 +69,18 @@ export const apiService = {
     await handleResponse(res);
   },
 
-  // Transactions
-  async getTransactions(): Promise<Transaction[]> {
-    const res = await fetch(`${API_BASE}/transactions`);
+  async updateAgent(agent: any): Promise<void> {
+    const res = await fetch(`${API_BASE}/agents`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(agent)
+    });
+    await handleResponse(res);
+  },
+
+  async getTransactions(phone?: string): Promise<Transaction[]> {
+    const url = phone ? `${API_BASE}/transactions?phone=${phone}` : `${API_BASE}/transactions`;
+    const res = await fetch(url);
     return handleResponse(res);
   },
 

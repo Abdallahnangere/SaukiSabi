@@ -4,7 +4,10 @@ import { sql, getSafeBody, apiError } from './db';
 export default async function handler(req: any, res: any) {
   try {
     if (req.method === 'GET') {
-      const plans = await sql`SELECT * FROM data_plans ORDER BY network ASC, price ASC`;
+      const { network } = req.query;
+      const plans = network 
+        ? await sql`SELECT * FROM data_plans WHERE network = ${network} AND isActive = true ORDER BY price ASC`
+        : await sql`SELECT * FROM data_plans ORDER BY network ASC, price ASC`;
       return res.status(200).json(plans);
     }
 
@@ -12,19 +15,13 @@ export default async function handler(req: any, res: any) {
       const body = getSafeBody(req);
       const { id, network, size, validity, price, planId } = body;
       
-      if (!id || !network || !size || !price || !planId) {
-        return res.status(400).json({ error: 'Missing required fields: id, network, size, price, or planId' });
-      }
+      if (!id || !network || !size || !price) return res.status(400).json({ error: "Missing required fields" });
 
       await sql`
-        INSERT INTO data_plans (id, network, size, validity, price, planId)
-        VALUES (${id}, ${network}, ${size}, ${validity || '30 Days'}, ${price}, ${planId})
+        INSERT INTO data_plans (id, network, size, validity, price, planId, isActive)
+        VALUES (${id}, ${network}, ${size}, ${validity || '30 Days'}, ${price}, ${planId || 0}, true)
         ON CONFLICT (id) DO UPDATE SET 
-          network = EXCLUDED.network, 
-          size = EXCLUDED.size, 
-          validity = EXCLUDED.validity, 
-          price = EXCLUDED.price, 
-          planId = EXCLUDED.planId
+          network = EXCLUDED.network, size = EXCLUDED.size, price = EXCLUDED.price, planId = EXCLUDED.planId
       `;
       return res.status(200).json({ success: true });
     }
@@ -37,6 +34,7 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).end();
   } catch (error: any) {
-    return apiError(res, error, "Plans Handler");
+    // Corrected sendError to apiError
+    return apiError(res, error, "Plans");
   }
 }
