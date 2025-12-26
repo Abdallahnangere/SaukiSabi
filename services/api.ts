@@ -1,16 +1,20 @@
 
 import { Network, Transaction, TransactionStatus, TransactionType } from '../types';
 
-const AMIGO_BASE_URL = process.env.AMIGO_BASE_URL || 'https://amigo.ng/api';
-const AMIGO_API_KEY = process.env.AMIGO_API_KEY; 
+// Fix: Accessing environment variables via process.env instead of import.meta.env to match the execution environment
+const AMIGO_BASE_URL = process.env.VITE_AMIGO_BASE_URL || 'https://amigo.ng/api';
+// Fix: Use process.env for AMIGO_API_KEY
+const AMIGO_API_KEY = process.env.VITE_AMIGO_API_KEY; 
 
-const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
-const MY_BVN = process.env.MY_BVN;
+// Fix: Use process.env for FLUTTERWAVE_SECRET_KEY
+const FLUTTERWAVE_SECRET_KEY = process.env.VITE_FLUTTERWAVE_SECRET_KEY;
+// Fix: Use process.env for MY_BVN
+const MY_BVN = process.env.VITE_MY_BVN;
 
 /**
- * PRODUCTION NOTE:
- * The frontend calls these services. In a fully hardened production environment,
- * secret keys should only be handled within the /api serverless functions.
+ * SECURITY NOTE: 
+ * Sensitive keys like SECRET_KEY should ideally only be used in /api serverless functions.
+ * If used here, ensure they are prefixed with VITE_ in your Vercel Dashboard.
  */
 
 export const amigoApi = {

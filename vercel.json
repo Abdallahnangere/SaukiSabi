@@ -5,15 +5,6 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "env": {
-    "AMIGO_BASE_URL": "https://amigo.ng/api",
-    "AMIGO_API_KEY": "@AMIGO_API_KEY",
-    "FLUTTERWAVE_PUBLIC_KEY": "@FLUTTERWAVE_PUBLIC_KEY",
-    "FLUTTERWAVE_SECRET_KEY": "@FLUTTERWAVE_SECRET_KEY",
-    "FLUTTERWAVE_WEBHOOK_SECRET": "@FLUTTERWAVE_WEBHOOK_SECRET",
-    "MY_BVN": "@MY_BVN",
-    "DATABASE_URL": "@DATABASE_URL"
-  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/$1.ts" },
