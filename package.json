@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -14,11 +14,14 @@
     "react-dom": "^19.0.0",
     "lucide-react": "^0.400.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.3.0"
+    "tailwind-merge": "^2.3.0",
+    "@neondatabase/serverless": "^1.0.2"
   },
   "devDependencies": {
+    "typescript": "^5.4.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/node": "^20.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.2.0",
     "autoprefixer": "^10.4.19",
