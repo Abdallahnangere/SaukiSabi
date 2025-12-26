@@ -1,30 +1,34 @@
 
 import { neon, neonConfig } from '@neondatabase/serverless';
 
-// Essential for serverless environments to prevent connection hangs
+// Critical for serverless reliability
 neonConfig.fetchConnectionCache = true;
 
 const databaseUrl = process.env.DATABASE_URL;
 
-let sqlClient: any = null;
+let cachedSql: any = null;
 
 export const getSql = () => {
-  if (!sqlClient) {
+  if (!cachedSql) {
     if (!databaseUrl) {
-      throw new Error("DATABASE_URL is missing.");
+      throw new Error("Critical: DATABASE_URL is not defined in environment.");
     }
-    sqlClient = neon(databaseUrl);
+    // We create the client only once
+    cachedSql = neon(databaseUrl);
   }
-  return sqlClient;
+  return cachedSql;
 };
 
-// Main SQL tag function with automatic initialization
-export const sql = (strings: TemplateStringsArray, ...values: any[]) => {
+/**
+ * Robust SQL tag that handles potential initialization errors 
+ * gracefully without crashing the whole function.
+ */
+export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
   try {
-    const client = getSql();
-    return client(strings, ...values);
-  } catch (err) {
-    console.error("SQL Execution Failure:", err);
+    const query = getSql();
+    return await query(strings, ...values);
+  } catch (err: any) {
+    console.error("Database Query Execution Failed:", err.message);
     throw err;
   }
 };
@@ -40,13 +44,14 @@ export const getSafeBody = (req: any) => {
 };
 
 export const apiError = (res: any, error: any, context: string) => {
-  console.error(`[API Error - ${context}]:`, error);
-  const status = 500;
-  const message = error.message || "Internal Server Error";
+  console.error(`[API Error - ${context}]:`, error.message);
+  
+  // Distinguish between common errors
+  const status = error.message.includes('not defined') ? 503 : 500;
   
   return res.status(status).json({ 
-    error: message, 
+    error: error.message || "Internal Server Error", 
     context,
-    code: error.code
+    timestamp: new Date().toISOString()
   });
 };

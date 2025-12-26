@@ -45,10 +45,21 @@ export const DataView: React.FC = () => {
     setError(null);
     try {
       const txRef = `SM-DATA-${Date.now()}`;
-      // In authoritative model, we only send the plan ID, backend should verify price.
-      const pInfo = await flutterwaveApi.generateVirtualAccount(selectedPlan!.price, `${phone}@saukimart.com`, 'Sauki Customer', txRef);
+      
+      // We now call a single proxy endpoint that handles FW + Transaction saving
+      const pInfo = await flutterwaveApi.initiatePayment({
+        amount: selectedPlan!.price,
+        email: `${phone}@saukimart.com`,
+        name: 'Sauki Customer',
+        txRef,
+        phone,
+        details: `${selectedNetwork} ${selectedPlan!.size} Data`,
+        type: TransactionType.DATA
+      });
+
       setPaymentInfo(pInfo);
       
+      // Mock transaction for local UI state
       const tx: Transaction = {
         id: `tx_${Date.now()}`,
         reference: txRef,
@@ -64,11 +75,12 @@ export const DataView: React.FC = () => {
           bankName: pInfo.bank_name
         }
       };
-      await apiService.saveTransaction(tx);
+      
       setLastTransaction(tx);
       setStep('pay');
     } catch (e: any) {
-      setError(e.message);
+      console.error("Payment Initiation Failed:", e);
+      setError(e.message || "Failed to connect to payment server. Please check your internet.");
     } finally {
       setLoading(false);
     }
@@ -76,7 +88,6 @@ export const DataView: React.FC = () => {
 
   const networks = [
     { id: 'MTN' as Network, image: IMAGES.MTN, label: 'MTN Nigeria' },
-    { id: 'AIRTEL' as Network, image: IMAGES.AIRTEL, label: 'Airtel Nigeria' },
     { id: 'GLO' as Network, image: IMAGES.GLO, label: 'Glo World' }
   ];
 
@@ -85,7 +96,7 @@ export const DataView: React.FC = () => {
       <div className="space-y-2">
         <p className="label-caps !text-[#0071e3]">Connectivity</p>
         <h2 className="title-lg">Instant Data.</h2>
-        <p className="text-[#86868b] text-sm font-medium tracking-tight">Authoritative prices fetched from database.</p>
+        <p className="text-[#86868b] text-sm font-medium tracking-tight">Select a network to view plans.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5">
@@ -118,42 +129,29 @@ export const DataView: React.FC = () => {
       >
         <div className="space-y-8 pb-10">
           {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-2xl flex items-center space-x-3 text-[10px] font-black uppercase">
-              <AlertCircle size={16} /> <span>{error}</span>
+            <div className="p-4 bg-red-50 text-red-600 rounded-2xl flex items-start space-x-3 text-[10px] font-black uppercase leading-relaxed">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" /> <span>{error}</span>
             </div>
           )}
 
           {step === 'plan' && (
             <div className="grid gap-4">
-              {loading ? (
-                <div className="py-20 flex flex-col items-center justify-center space-y-4">
-                  <Loader2 className="animate-spin text-[#0071e3]" size={32} />
-                  <p className="label-caps">Syncing with database...</p>
-                </div>
-              ) : (
-                plans.map(plan => (
-                  <button
-                    key={plan.id}
-                    onClick={() => handlePlanSelect(plan)}
-                    className="w-full flex items-center justify-between p-8 rounded-[2rem] bg-gray-50 border border-gray-100 group active:border-[#0071e3]"
-                  >
-                    <div className="text-left">
-                      <h4 className="font-black text-[#1d1d1f] text-2xl tracking-tighter">{plan.size}</h4>
-                      <p className="label-caps !text-[10px] mt-1">{plan.validity}</p>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-2xl font-black text-[#0071e3]">₦{plan.price}</p>
-                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1">Verified Price</p>
-                    </div>
-                  </button>
-                ))
-              )}
-              {!loading && plans.length === 0 && (
-                <div className="text-center py-20 bg-gray-50 rounded-[2.5rem]">
-                   <Wifi className="mx-auto text-gray-200 mb-4" size={48} />
-                   <p className="label-caps">No active plans found</p>
-                </div>
-              )}
+              {plans.map(plan => (
+                <button
+                  key={plan.id}
+                  onClick={() => handlePlanSelect(plan)}
+                  className="w-full flex items-center justify-between p-8 rounded-[2rem] bg-gray-50 border border-gray-100 group active:border-[#0071e3]"
+                >
+                  <div className="text-left">
+                    <h4 className="font-black text-[#1d1d1f] text-2xl tracking-tighter">{plan.size}</h4>
+                    <p className="label-caps !text-[10px] mt-1">{plan.validity}</p>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-2xl font-black text-[#0071e3]">₦{plan.price}</p>
+                     <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1">Verified Price</p>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
 

@@ -30,15 +30,21 @@ export const StoreView: React.FC = () => {
     setLoading(true);
     try {
       const txRef = `SM-PROD-${Date.now()}`;
-      const pInfo = await flutterwaveApi.generateVirtualAccount(
-        selectedProduct!.price, 
-        `${form.phone}@saukimart.com`, 
-        form.name,
-        txRef
-      );
+      // Fix: Use initiatePayment instead of generateVirtualAccount as defined in services/api.ts
+      const pInfo = await flutterwaveApi.initiatePayment({
+        amount: selectedProduct!.price,
+        email: `${form.phone}@saukimart.com`,
+        name: form.name,
+        txRef,
+        phone: form.phone,
+        details: `${selectedProduct!.name} Order`,
+        type: TransactionType.PRODUCT
+      });
       
       setPaymentInfo(pInfo);
       
+      // Create transaction object for local UI state. 
+      // The backend /api/pay already handles the initial database persistence.
       const tx: Transaction = {
         id: `tx_${Date.now()}`,
         reference: txRef,
@@ -51,11 +57,19 @@ export const StoreView: React.FC = () => {
         paymentDetails: {
           accountNumber: pInfo.account_number,
           accountName: pInfo.account_name,
+          bank_name: pInfo.bank_name
+        }
+      } as any; // Cast slightly to match expected structure if needed
+      
+      // Update local state with the mock transaction
+      setLastTransaction({
+        ...tx,
+        paymentDetails: {
+          accountNumber: pInfo.account_number,
+          accountName: pInfo.account_name,
           bankName: pInfo.bank_name
         }
-      };
-      await apiService.saveTransaction(tx);
-      setLastTransaction(tx);
+      });
       setStep('pay');
     } catch (err: any) {
       alert(err.message || 'Payment initialization failed');
@@ -69,6 +83,7 @@ export const StoreView: React.FC = () => {
     setTimeout(() => {
       if (lastTransaction) {
         const updated = { ...lastTransaction, status: TransactionStatus.SUCCESSFUL };
+        // We save the update here to mark it as successful in the DB
         apiService.saveTransaction(updated);
         setLastTransaction(updated);
       }
