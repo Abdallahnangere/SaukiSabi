@@ -58,7 +58,6 @@ export interface Transaction {
   phone: string;
   details: string;
   receiptUrl?: string;
-  // Payment info
   paymentDetails?: {
     accountNumber: string;
     accountName: string;

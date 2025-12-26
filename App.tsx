@@ -22,53 +22,56 @@ const App: React.FC = () => {
     isAdmin: false
   });
 
-  // URL-based routing for Admin
   useEffect(() => {
     const handlePathChange = () => {
-      if (window.location.pathname === '/admin') {
-        setIsUrlAdmin(true);
-      } else {
-        setIsUrlAdmin(false);
-      }
+      setIsUrlAdmin(window.location.pathname === '/admin');
     };
-
     handlePathChange();
     window.addEventListener('popstate', handlePathChange);
     return () => window.removeEventListener('popstate', handlePathChange);
   }, []);
 
-  // Fetch data from API/Neon
   const refreshData = async () => {
-    const [products, plans, transactions, agents] = await Promise.all([
-      apiService.getProducts(),
-      apiService.getDataPlans(),
-      apiService.getTransactions(),
-      apiService.getAgents()
-    ]);
-    setState(prev => ({ ...prev, products, dataPlans: plans, transactions, agents }));
+    try {
+      const [products, plans, transactions, agents] = await Promise.all([
+        apiService.getProducts(),
+        apiService.getDataPlans(),
+        apiService.getTransactions(),
+        apiService.getAgents()
+      ]);
+      setState(prev => ({ 
+        ...prev, 
+        products, 
+        dataPlans: plans, 
+        transactions, 
+        agents,
+        // Sync current agent if logged in
+        currentAgent: prev.currentAgent ? agents.find(a => a.id === prev.currentAgent?.id) || null : null
+      }));
+    } catch (e) {
+      console.error("Refresh sync failed", e);
+    }
   };
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(refreshData, 10000); // Poll every 10s for updates
+    const interval = setInterval(refreshData, 8000);
     return () => clearInterval(interval);
   }, []);
 
   if (isUrlAdmin) {
     return (
-      <div className="bg-white min-h-screen">
-        <AdminView 
-          state={state} 
-          onStateChange={(newState) => {
-            setState(newState);
-            refreshData(); // Immediate sync on changes
-          }} 
-          onBack={() => {
-            window.history.pushState({}, '', '/');
-            setIsUrlAdmin(false);
-          }} 
-        />
-      </div>
+      <AdminView 
+        state={state} 
+        onStateChange={(newState) => {
+          setState(newState);
+          refreshData();
+        }} 
+        onBack={() => {
+          window.history.pushState({}, '', '/');
+          setIsUrlAdmin(false);
+        }} 
+      />
     );
   }
 
@@ -78,7 +81,7 @@ const App: React.FC = () => {
       case 'store': return <StoreView />;
       case 'data': return <DataView />;
       case 'track': return <TrackView />;
-      case 'agent': return <AgentView state={state} onStateChange={setState} onOpenAdmin={() => {}} />;
+      case 'agent': return <AgentView state={state} onStateChange={setState} refresh={refreshData} />;
       default: return <HomeView onNavigate={setActiveTab} />;
     }
   };
