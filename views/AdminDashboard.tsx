@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppState, DataPlan, Network, Product, Agent } from '../types';
 import { apiService } from '../services/apiService';
-import { ChevronLeft, Plus, Trash2, Edit2, LogOut, Package, Wifi, Users, ListFilter, UserCheck, UserX, Loader2 } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Edit2, LogOut, Package, Wifi, Users, ListFilter, UserCheck, UserX, Loader2, AlertCircle } from 'lucide-react';
 
 interface AdminViewProps {
   state: AppState;
@@ -14,6 +14,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
   const [activeTab, setActiveTab] = useState<'plans' | 'products' | 'agents' | 'tx'>('plans');
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [planForm, setPlanForm] = useState<Partial<DataPlan>>({ network: 'MTN', size: '', price: 0, planId: 0 });
   const [prodForm, setProdForm] = useState<Partial<Product>>({ name: '', price: 0, description: '', inStock: true });
@@ -21,13 +22,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
   const handleSavePlan = async () => {
     if (!planForm.size || !planForm.price || !planForm.planId) return alert("Fill all fields");
     setLoading(true);
+    setError(null);
     try {
       const plan = { ...planForm, id: `plan_${Date.now()}`, validity: '30 Days' } as DataPlan;
       await apiService.saveDataPlan(plan);
       setIsAdding(false);
       setPlanForm({ network: 'MTN', size: '', price: 0, planId: 0 });
-    } catch (e) {
-      alert("Save failed. Check Neon logs.");
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -35,8 +37,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
 
   const handleAgentStatus = async (agent: Agent, status: 'APPROVED' | 'DECLINED') => {
     setLoading(true);
+    setError(null);
     try {
-      // Simulate static account generation for approved agents as per backend plan
       const updatedAgent = { 
         ...agent, 
         status,
@@ -47,8 +49,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
         } : undefined
       };
       await apiService.saveAgent(updatedAgent);
-    } catch (e) {
-      alert("Approval failed");
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -65,6 +67,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
           <LogOut size={14} className="mr-1" /> EXIT
         </button>
       </header>
+
+      {error && (
+        <div className="m-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start space-x-3 text-red-600 animate-in slide-in-from-top">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <div className="text-xs font-bold leading-relaxed">
+            <p className="uppercase tracking-widest mb-1">Error Detected</p>
+            <p>{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="text-[10px] font-black uppercase">Close</button>
+        </div>
+      )}
 
       <nav className="p-4 grid grid-cols-4 gap-2 bg-white border-b border-gray-50">
         {[

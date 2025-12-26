@@ -1,5 +1,5 @@
 
-import { sql } from './db';
+import { sql, getSafeBody } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -9,9 +9,13 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = getSafeBody(req);
       const { id, network, size, validity, price, planId } = body;
       
+      if (!id || !network || !size || !price || !planId) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
       await sql`
         INSERT INTO data_plans (id, network, size, validity, price, planId)
         VALUES (${id}, ${network}, ${size}, ${validity}, ${price}, ${planId})
@@ -33,7 +37,7 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).end();
   } catch (error: any) {
-    console.error(error);
+    console.error("API Error [Plans]:", error);
     res.status(500).json({ error: error.message });
   }
 }

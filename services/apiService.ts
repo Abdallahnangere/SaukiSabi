@@ -3,10 +3,18 @@ import { Product, DataPlan, Agent, Transaction } from '../types';
 
 const API_BASE = '/api';
 
+const handleResponse = async (res: Response) => {
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || `Error ${res.status}: ${res.statusText}`);
+  }
+  return data;
+};
+
 export const apiService = {
   async getProducts(): Promise<Product[]> {
     const res = await fetch(`${API_BASE}/products`);
-    return res.ok ? await res.json() : [];
+    return handleResponse(res);
   },
 
   async updateProduct(product: Product): Promise<void> {
@@ -15,12 +23,12 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product)
     });
-    if (!res.ok) throw new Error('Save failed');
+    await handleResponse(res);
   },
 
   async getDataPlans(): Promise<DataPlan[]> {
     const res = await fetch(`${API_BASE}/plans`);
-    return res.ok ? await res.json() : [];
+    return handleResponse(res);
   },
 
   async saveDataPlan(plan: DataPlan): Promise<void> {
@@ -29,29 +37,31 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(plan)
     });
-    if (!res.ok) throw new Error('Save failed');
+    await handleResponse(res);
   },
 
   async deleteDataPlan(id: string): Promise<void> {
-    await fetch(`${API_BASE}/plans?id=${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}/plans?id=${id}`, { method: 'DELETE' });
+    await handleResponse(res);
   },
 
   async getTransactions(): Promise<Transaction[]> {
     const res = await fetch(`${API_BASE}/transactions`);
-    return res.ok ? await res.json() : [];
+    return handleResponse(res);
   },
 
   async saveTransaction(tx: Transaction): Promise<void> {
-    await fetch(`${API_BASE}/transactions`, {
+    const res = await fetch(`${API_BASE}/transactions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tx)
     });
+    await handleResponse(res);
   },
 
   async getAgents(): Promise<Agent[]> {
     const res = await fetch(`${API_BASE}/agents`);
-    return res.ok ? await res.json() : [];
+    return handleResponse(res);
   },
 
   async saveAgent(agent: Agent): Promise<void> {
@@ -60,6 +70,6 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(agent)
     });
-    if (!res.ok) throw new Error('Onboarding failed');
+    await handleResponse(res);
   }
 };
