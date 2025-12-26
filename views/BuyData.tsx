@@ -34,7 +34,6 @@ export const DataView: React.FC = () => {
     if (!phone || phone.length < 11) return alert('Valid phone number required');
     setLoading(true);
     try {
-      // Fix: Generate txRef and provide it as the 4th argument to flutterwaveApi.generateVirtualAccount
       const txRef = `SM-DATA-${Date.now()}`;
       const pInfo = await flutterwaveApi.generateVirtualAccount(
         selectedPlan!.price,
@@ -62,6 +61,8 @@ export const DataView: React.FC = () => {
       dbService.saveTransaction(tx);
       setLastTransaction(tx);
       setStep('pay');
+    } catch (e: any) {
+      alert(e.message || 'Payment initialization failed');
     } finally {
       setLoading(false);
     }
@@ -70,11 +71,7 @@ export const DataView: React.FC = () => {
   const handlePaymentConfirm = async () => {
     setStep('confirming');
     setLoading(true);
-    
-    // Stage 1: Payment Verification Visual
     await new Promise(r => setTimeout(r, 2000));
-    
-    // Stage 2: Data Delivery
     try {
       await amigoApi.deliverData({
         network: selectedNetwork === 'MTN' ? 1 : selectedNetwork === 'GLO' ? 2 : 3,
@@ -103,10 +100,10 @@ export const DataView: React.FC = () => {
   };
 
   return (
-    <div className="px-6 mt-6 space-y-8 animate-in fade-in duration-500">
+    <div className="px-6 mt-8 space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="space-y-1">
-        <h2 className="text-3xl font-black tracking-tighter text-[#1d1d1f]">Instant Data</h2>
-        <p className="text-gray-500 font-medium">Select a network to begin refill.</p>
+        <h2 className="text-4xl font-black tracking-tighter text-[#1d1d1f]">Instant Data</h2>
+        <p className="text-gray-500 font-medium tracking-tight">Select network to refill instantly.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -114,19 +111,19 @@ export const DataView: React.FC = () => {
           <button
             key={net.id}
             onClick={() => handleNetworkSelect(net.id)}
-            className={`relative flex items-center justify-between p-6 rounded-[2.2rem] border-2 transition-all active:scale-95 ${net.color}`}
+            className={`relative flex items-center justify-between p-7 rounded-[2.5rem] border-2 transition-all active:scale-[0.98] ${net.color}`}
           >
-            <div className="flex items-center space-x-5">
-              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-sm border border-gray-50">
+            <div className="flex items-center space-x-6">
+              <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center p-3 shadow-sm border border-gray-100">
                 <img src={net.image} alt={net.id} className="w-full h-full object-contain" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-[#1d1d1f] tracking-tight">{net.id}</h3>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Refill</p>
+                <h3 className="text-2xl font-black text-[#1d1d1f] tracking-tighter">{net.id}</h3>
+                <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">Verified Provider</p>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#1d1d1f] shadow-sm">
-              <Signal size={18} />
+            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#1d1d1f] shadow-sm">
+              <Signal size={22} />
             </div>
           </button>
         ))}
@@ -138,50 +135,52 @@ export const DataView: React.FC = () => {
           setStep('network');
           setSelectedPlan(null);
         }}
-        title={step === 'plan' ? `${selectedNetwork} Plans` : step === 'pay' ? 'Checkout' : step === 'success' ? 'Confirmed' : 'Processing'}
+        title={step === 'plan' ? `${selectedNetwork} Plans` : step === 'pay' ? 'Secure Checkout' : 'Processing'}
       >
-        <div className="space-y-6">
+        <div className="space-y-8">
           {step === 'plan' && (
-            <div className="space-y-6">
-              <div className="space-y-3">
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 gap-3">
                 {plans.filter(p => p.network === selectedNetwork).map(plan => (
                   <button
                     key={plan.id}
                     onClick={() => setSelectedPlan(plan)}
-                    className={`w-full flex items-center justify-between p-6 rounded-2xl border-2 transition-all ${
-                      selectedPlan?.id === plan.id ? 'border-[#0071e3] bg-blue-50' : 'border-gray-50 bg-gray-50/50'
+                    className={`w-full flex items-center justify-between p-6 rounded-[1.8rem] border-2 transition-all ${
+                      selectedPlan?.id === plan.id ? 'border-[#0071e3] bg-blue-50/50 shadow-sm' : 'border-gray-50 bg-gray-50/50'
                     }`}
                   >
                     <div>
-                      <h4 className="font-black text-[#1d1d1f] text-lg">{plan.size}</h4>
-                      <p className="text-xs font-bold text-gray-400">{plan.validity}</p>
+                      <h4 className="font-black text-[#1d1d1f] text-xl tracking-tight">{plan.size}</h4>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{plan.validity}</p>
                     </div>
-                    <p className="text-xl font-black text-[#0071e3]">₦{plan.price}</p>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-[#0071e3]">₦{plan.price}</p>
+                    </div>
                   </button>
                 ))}
               </div>
 
               {selectedPlan && (
-                <div className="space-y-5 animate-in slide-in-from-bottom duration-300">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Phone</label>
+                <div className="space-y-6 animate-in slide-in-from-bottom duration-500 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Number</label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
+                      <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" size={22} />
                       <input
                         type="tel"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
-                        placeholder="0801 234 5678"
-                        className="w-full bg-gray-50 border-0 rounded-2xl p-5 pl-12 text-lg font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                        placeholder="08164135836"
+                        className="w-full bg-gray-50 border-0 rounded-[1.5rem] p-6 pl-14 text-xl font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-inner"
                       />
                     </div>
                   </div>
                   <button
                     onClick={handleProceed}
                     disabled={loading}
-                    className="w-full bg-[#0071e3] text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform"
+                    className="w-full bg-[#0071e3] text-white py-6 rounded-[1.5rem] font-black text-xl shadow-2xl active:scale-[0.98] transition-transform"
                   >
-                    {loading ? 'Processing...' : 'Proceed to Checkout'}
+                    {loading ? 'Initializing...' : 'Proceed to Payment'}
                   </button>
                 </div>
               )}
@@ -191,34 +190,36 @@ export const DataView: React.FC = () => {
           {step === 'pay' && paymentInfo && (
             <div className="space-y-8">
               <div className="text-center space-y-2">
-                <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Amount to Pay</p>
-                <h3 className="text-4xl font-black text-[#1d1d1f]">₦{paymentInfo.amount}</h3>
+                <p className="text-xs text-gray-400 uppercase font-black tracking-[0.2em]">Amount Due</p>
+                <h3 className="text-5xl font-black text-[#1d1d1f] tracking-tighter">₦{paymentInfo.amount}</h3>
               </div>
               
-              <div className="bg-gray-50 rounded-[2rem] p-8 space-y-6 border border-gray-100 shadow-sm">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bank Name</p>
-                  <p className="text-lg font-black text-[#1d1d1f]">{paymentInfo.bank_name}</p>
+              <div className="bg-gray-50 rounded-[2.5rem] p-8 space-y-8 border border-gray-100 shadow-sm">
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Receiving Bank</p>
+                  <p className="text-xl font-black text-[#1d1d1f]">{paymentInfo.bank_name}</p>
                 </div>
-                <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-50">
+                <div className="flex justify-between items-center bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-sm">
                   <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Account Number</p>
-                    <p className="text-2xl font-black text-[#1d1d1f] font-mono">{paymentInfo.account_number}</p>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Account Number</p>
+                    <p className="text-3xl font-black text-[#1d1d1f] font-mono tracking-tighter">{paymentInfo.account_number}</p>
                   </div>
-                  <button onClick={() => copyToClipboard(paymentInfo.account_number)} className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm active:scale-90 transition-transform">
-                    {isCopied ? <Check size={20} /> : <Copy size={20} />}
+                  <button onClick={() => copyToClipboard(paymentInfo.account_number)} className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm active:scale-90 transition-transform">
+                    {isCopied ? <Check size={24} /> : <Copy size={24} />}
                   </button>
                 </div>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-xl text-center">
-                <p className="text-xs text-blue-700 font-bold">Refill starts automatically once payment is received.</p>
+              <div className="p-6 bg-blue-50/50 rounded-[1.5rem] border border-blue-100">
+                <p className="text-xs text-blue-600 font-bold leading-relaxed text-center">
+                  Funds sent to this account are verified automatically. Please do not leave this page until you click "I Have Paid".
+                </p>
               </div>
 
               <button
                 onClick={handlePaymentConfirm}
                 disabled={loading}
-                className="w-full bg-[#1d1d1f] text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform"
+                className="w-full bg-[#1d1d1f] text-white py-6 rounded-[1.5rem] font-black text-xl shadow-2xl active:scale-[0.98] transition-transform"
               >
                 I Have Paid
               </button>
@@ -226,24 +227,24 @@ export const DataView: React.FC = () => {
           )}
 
           {step === 'confirming' && (
-            <div className="py-12 flex flex-col items-center space-y-10">
+            <div className="py-16 flex flex-col items-center space-y-12">
               <div className="relative">
-                <div className="w-28 h-28 rounded-full border-[6px] border-gray-100 border-t-blue-500 animate-spin" />
-                <Signal className="absolute inset-0 m-auto text-blue-500" size={36} />
+                <div className="w-32 h-32 rounded-full border-[8px] border-gray-100 border-t-blue-500 animate-spin" />
+                <Signal className="absolute inset-0 m-auto text-blue-500" size={40} />
               </div>
-              <div className="text-center space-y-4 w-full px-4">
-                <div className="flex items-center justify-between bg-gray-50 p-5 rounded-2xl border border-gray-100">
+              <div className="text-center space-y-6 w-full px-2">
+                <div className="flex items-center justify-between bg-green-50 p-6 rounded-[1.5rem] border border-green-100">
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-500 shadow-sm">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm">
                       <Check size={20} />
                     </div>
-                    <span className="font-black text-sm text-[#1d1d1f]">Payment Confirmed</span>
+                    <span className="font-black text-sm text-green-700">Payment Verified</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                <div className="flex items-center justify-between bg-blue-50 p-6 rounded-[1.5rem] border border-blue-100">
                   <div className="flex items-center space-x-4">
                     <Loader2 size={24} className="text-blue-500 animate-spin" />
-                    <span className="font-black text-sm text-blue-600">Sending Data Package...</span>
+                    <span className="font-black text-sm text-blue-700 uppercase tracking-widest">Delivering Package...</span>
                   </div>
                 </div>
               </div>
