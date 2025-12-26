@@ -1,5 +1,6 @@
 
-import { sql, getSafeBody, apiError } from './db';
+// Use parseBody instead of non-existent getSafeBody
+import { sql, parseBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -9,7 +10,8 @@ export default async function handler(req: any, res: any) {
     }
     
     if (req.method === 'POST') {
-      const body = getSafeBody(req);
+      // Use parseBody instead of non-existent getSafeBody
+      const body = parseBody(req);
       const { id, fullName, phone, pin } = body;
       
       if (!id || !fullName || !phone || !pin) return res.status(400).json({ error: "Required: id, name, phone, pin" });
@@ -22,7 +24,8 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'PATCH') {
-      const body = getSafeBody(req);
+      // Use parseBody instead of non-existent getSafeBody
+      const body = parseBody(req);
       const { id, status, virtualAccount, walletBalance } = body;
       await sql`
         UPDATE agents SET 

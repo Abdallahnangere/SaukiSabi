@@ -1,5 +1,5 @@
 
-import { sql, getSafeBody, apiError } from './db';
+import { sql, parseBody, apiError, sendResponse } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -7,12 +7,12 @@ export default async function handler(req: any, res: any) {
       const { phone } = req.query;
       const txs = phone 
         ? await sql`SELECT * FROM transactions WHERE phone = ${phone} ORDER BY timestamp DESC`
-        : await sql`SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 100`;
-      return res.status(200).json(txs);
+        : await sql`SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 50`;
+      return sendResponse(res, 200, txs);
     }
     
     if (req.method === 'POST') {
-      const body = getSafeBody(req);
+      const body = parseBody(req);
       const { id, reference, type, amount, status, timestamp, phone, details, paymentDetails } = body;
       
       await sql`
@@ -20,12 +20,11 @@ export default async function handler(req: any, res: any) {
         VALUES (${id}, ${reference}, ${type}, ${amount}, ${status}, ${timestamp}, ${phone}, ${details}, ${JSON.stringify(paymentDetails)})
         ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status
       `;
-      return res.status(200).json({ success: true });
+      return sendResponse(res, 200, { success: true });
     }
 
     res.status(405).end();
   } catch (error: any) {
-    // Corrected sendError to apiError
-    return apiError(res, error, "Transactions");
+    return apiError(res, error, "TransactionsList");
   }
 }

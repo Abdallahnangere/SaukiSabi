@@ -1,40 +1,32 @@
 
-import { getSafeBody, apiError } from './db';
+import { parseBody, apiError, sendResponse } from './db';
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { network, mobile_number, plan, Ported_number } = getSafeBody(req);
+    const { network, mobile_number, plan, Ported_number } = parseBody(req);
     const apiKey = process.env.AMIGO_API_KEY;
     const baseUrl = process.env.AMIGO_BASE_URL || 'https://amigo.ng/api';
 
-    if (!apiKey) throw new Error("Server Config Error: AMIGO_API_KEY is missing.");
+    if (!apiKey) return sendResponse(res, 500, { error: "Amigo API Key missing." });
 
-    const amigoResponse = await fetch(`${baseUrl}/data/`, {
+    const response = await fetch(`${baseUrl}/data/`, {
       method: 'POST',
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        network,
-        mobile_number,
-        plan,
-        Ported_number
-      })
+      body: JSON.stringify({ network, mobile_number, plan, Ported_number })
     });
 
-    const data = await amigoResponse.json();
+    const result = await response.json();
 
-    if (!amigoResponse.ok) {
-      return res.status(400).json({ 
-        success: false, 
-        message: data.message || "Amigo API rejected the request" 
-      });
+    if (!response.ok) {
+      return sendResponse(res, 400, { message: result.message || "Delivery Rejected by Gateway" });
     }
 
-    return res.status(200).json(data);
+    return sendResponse(res, 200, result);
   } catch (error: any) {
     return apiError(res, error, "DataDelivery");
   }

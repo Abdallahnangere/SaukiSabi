@@ -1,34 +1,26 @@
 
-import { getSql } from './db';
+import { getSql, sendResponse } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
     const start = Date.now();
-    let dbStatus = 'disconnected';
+    let dbStatus = 'Offline';
     
     try {
-      const sql = getSql();
-      const dbCheck = await sql`SELECT 1 as connected`;
-      if (dbCheck[0].connected === 1) dbStatus = 'connected';
-    } catch (dbErr: any) {
-      dbStatus = `error: ${dbErr.message}`;
+      const db = getSql();
+      const check = await db`SELECT 1 as active`;
+      if (check[0].active === 1) dbStatus = 'Connected';
+    } catch (e: any) {
+      dbStatus = `Error: ${e.message}`;
     }
-    
-    const latency = Date.now() - start;
 
-    return res.status(200).json({
-      status: 'online',
-      version: '2.1.1-authoritative-fix',
-      db: dbStatus,
-      latency: `${latency}ms`,
-      env: {
-        DATABASE_URL: !!process.env.DATABASE_URL,
-        AMIGO_BASE_URL: !!process.env.AMIGO_BASE_URL,
-        AMIGO_API_KEY: !!process.env.AMIGO_API_KEY,
-        FLUTTERWAVE_SECRET: !!process.env.FLUTTERWAVE_SECRET_KEY
-      }
+    return sendResponse(res, 200, {
+      status: 'Ready',
+      database: dbStatus,
+      latency: `${Date.now() - start}ms`,
+      timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
-    return res.status(500).json({ status: 'error', error: error.message });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
   }
 }

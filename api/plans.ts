@@ -1,5 +1,6 @@
 
-import { sql, getSafeBody, apiError } from './db';
+// Use parseBody instead of non-existent getSafeBody
+import { sql, parseBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -12,7 +13,8 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const body = getSafeBody(req);
+      // Use parseBody instead of non-existent getSafeBody
+      const body = parseBody(req);
       const { id, network, size, validity, price, planId } = body;
       
       if (!id || !network || !size || !price) return res.status(400).json({ error: "Missing required fields" });

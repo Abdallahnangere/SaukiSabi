@@ -1,72 +1,65 @@
-import { sql, getSafeBody, apiError } from './db';
+
+import { sql, parseBody, apiError, sendResponse } from './db';
 
 export default async function handler(req: any, res: any) {
-  console.log("Payment Handler Started"); // Debug Log
-
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const body = getSafeBody(req);
+    const body = parseBody(req);
     const { amount, email, name, txRef, phone, details, type } = body;
-    const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+    const fwKey = process.env.FLUTTERWAVE_SECRET_KEY;
 
-    if (!secretKey) {
-      console.error("Missing FLUTTERWAVE_SECRET_KEY");
-      return res.status(500).json({ error: "Server Configuration Error: Flutterwave Key Missing" });
+    // 1. Validate Environment
+    if (!fwKey) {
+      return sendResponse(res, 500, { error: "Payment Gateway not configured (Key Missing)." });
     }
 
-    console.log(`Initiating Payment for ${email}, Ref: ${txRef}`);
-
-    // 1. Generate Virtual Account from Flutterwave
-    const fwResponse = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
+    // 2. Contact Flutterwave (Server-to-Server)
+    console.log(`Initiating Flutterwave for ${email}...`);
+    const fwRes = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${secretKey}`,
+        'Authorization': `Bearer ${fwKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: email || 'customer@saukimart.com',
+        email: email || 'user@saukimart.com',
         is_permanent: false,
         amount,
         tx_ref: txRef,
         phonenumber: phone,
-        firstname: name ? name.split(' ')[0] : 'Sauki',
-        lastname: name && name.split(' ').length > 1 ? name.split(' ')[1] : 'Customer'
+        firstname: name?.split(' ')[0] || 'Sauki',
+        lastname: name?.split(' ')[1] || 'Customer'
       })
     });
 
-    const fwData = await fwResponse.json();
+    const fwData = await fwRes.json();
 
-    if (!fwResponse.ok) {
-      console.error("FW API Error Details:", fwData);
-      return res.status(400).json({ 
-        error: fwData.message || "Flutterwave could not generate an account." 
-      });
+    if (!fwRes.ok) {
+      console.error("Flutterwave Rejected:", fwData);
+      return sendResponse(res, 400, { error: fwData.message || "Payment Gateway Error" });
     }
 
-    const pInfo = {
+    const paymentInfo = {
       account_number: fwData.data.account_number,
       bank_name: fwData.data.bank_name,
       account_name: fwData.data.note,
       amount: amount
     };
 
-    // 2. Persist transaction to database
-    const txId = `tx_${Date.now()}`;
-    const timestamp = Date.now();
-    
+    // 3. Log to Database
     try {
+      const txId = `tx_${Date.now()}`;
       await sql`
         INSERT INTO transactions (id, reference, type, amount, status, timestamp, phone, details, paymentDetails)
-        VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${timestamp}, ${phone}, ${details}, ${JSON.stringify(pInfo)})
+        VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${Date.now()}, ${phone}, ${details}, ${JSON.stringify(paymentInfo)})
       `;
-    } catch (dbErr: any) {
-      console.error("DB Insert Failed (Non-fatal):", dbErr.message);
-      // We do NOT stop here. We still return the bank details so the user can pay.
+    } catch (dbErr) {
+      console.warn("DB logging failed, but payment account generated.", dbErr);
     }
 
-    return res.status(200).json(pInfo);
+    return sendResponse(res, 200, paymentInfo);
   } catch (error: any) {
-    return apiError(res, error, "PaymentProxy");
+    return apiError(res, error, "PaymentInitiation");
   }
 }
