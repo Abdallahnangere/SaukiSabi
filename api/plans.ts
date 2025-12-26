@@ -1,5 +1,5 @@
 
-import { sql, getSafeBody } from './db';
+import { sql, getSafeBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -13,12 +13,12 @@ export default async function handler(req: any, res: any) {
       const { id, network, size, validity, price, planId } = body;
       
       if (!id || !network || !size || !price || !planId) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ error: 'Missing required fields: id, network, size, price, or planId' });
       }
 
       await sql`
         INSERT INTO data_plans (id, network, size, validity, price, planId)
-        VALUES (${id}, ${network}, ${size}, ${validity}, ${price}, ${planId})
+        VALUES (${id}, ${network}, ${size}, ${validity || '30 Days'}, ${price}, ${planId})
         ON CONFLICT (id) DO UPDATE SET 
           network = EXCLUDED.network, 
           size = EXCLUDED.size, 
@@ -37,7 +37,6 @@ export default async function handler(req: any, res: any) {
 
     res.status(405).end();
   } catch (error: any) {
-    console.error("API Error [Plans]:", error);
-    res.status(500).json({ error: error.message });
+    return apiError(res, error, "Plans Handler");
   }
 }
