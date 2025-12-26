@@ -1,0 +1,7 @@
+{
+  "name": "SAUKI MART",
+  "description": "Premium mobile-first e-commerce and mobile data delivery platform for MTN Routers, SIMs, and instant data plans.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

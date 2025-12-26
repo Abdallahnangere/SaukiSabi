@@ -1,0 +1,19 @@
+
+{
+  "version": 2,
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "env": {
+    "AMIGO_BASE_URL": "https://amigo.ng/api",
+    "FLUTTERWAVE_PUBLIC_KEY": "@flutterwave_public_key",
+    "FLUTTERWAVE_SECRET_KEY": "@flutterwave_secret_key",
+    "FLUTTERWAVE_WEBHOOK_SECRET": "@flutterwave_webhook_secret",
+    "MY_BVN": "@my_bvn"
+  },
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
