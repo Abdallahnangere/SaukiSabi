@@ -1,7 +1,8 @@
-
 import { sql, getSafeBody, apiError } from './db';
 
 export default async function handler(req: any, res: any) {
+  console.log("Payment Handler Started"); // Debug Log
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
@@ -10,8 +11,11 @@ export default async function handler(req: any, res: any) {
     const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
 
     if (!secretKey) {
-      return res.status(500).json({ error: "Flutterwave Secret Key is not configured on the server." });
+      console.error("Missing FLUTTERWAVE_SECRET_KEY");
+      return res.status(500).json({ error: "Server Configuration Error: Flutterwave Key Missing" });
     }
+
+    console.log(`Initiating Payment for ${email}, Ref: ${txRef}`);
 
     // 1. Generate Virtual Account from Flutterwave
     const fwResponse = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
@@ -36,7 +40,7 @@ export default async function handler(req: any, res: any) {
     if (!fwResponse.ok) {
       console.error("FW API Error Details:", fwData);
       return res.status(400).json({ 
-        error: fwData.message || "Flutterwave could not generate an account. Please try again later." 
+        error: fwData.message || "Flutterwave could not generate an account." 
       });
     }
 
@@ -57,8 +61,8 @@ export default async function handler(req: any, res: any) {
         VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${timestamp}, ${phone}, ${details}, ${JSON.stringify(pInfo)})
       `;
     } catch (dbErr: any) {
-      console.error("DB Insert Failed during payment:", dbErr);
-      // We still return pInfo so the user can pay, even if DB logging failed temporarily
+      console.error("DB Insert Failed (Non-fatal):", dbErr.message);
+      // We do NOT stop here. We still return the bank details so the user can pay.
     }
 
     return res.status(200).json(pInfo);
