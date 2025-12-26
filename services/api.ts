@@ -1,25 +1,20 @@
 
 import { Network, Transaction, TransactionStatus, TransactionType } from '../types';
 
-// Fix: Accessing environment variables via process.env instead of import.meta.env to match the execution environment
-const AMIGO_BASE_URL = process.env.VITE_AMIGO_BASE_URL || 'https://amigo.ng/api';
-// Fix: Use process.env for AMIGO_API_KEY
-const AMIGO_API_KEY = process.env.VITE_AMIGO_API_KEY; 
-
-// Fix: Use process.env for FLUTTERWAVE_SECRET_KEY
-const FLUTTERWAVE_SECRET_KEY = process.env.VITE_FLUTTERWAVE_SECRET_KEY;
-// Fix: Use process.env for MY_BVN
-const MY_BVN = process.env.VITE_MY_BVN;
-
 /**
- * SECURITY NOTE: 
- * Sensitive keys like SECRET_KEY should ideally only be used in /api serverless functions.
- * If used here, ensure they are prefixed with VITE_ in your Vercel Dashboard.
+ * ENVIRONMENT VARIABLES:
+ * These are now mapped in vite.config.ts from your standard Vercel 
+ * Environment Variables (no VITE_ prefix required).
  */
+
+const AMIGO_BASE_URL = process.env.AMIGO_BASE_URL;
+const AMIGO_API_KEY = process.env.AMIGO_API_KEY; 
+const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
+const MY_BVN = process.env.MY_BVN;
 
 export const amigoApi = {
   async deliverData(payload: { network: number; mobile_number: string; plan: number; Ported_number: boolean }) {
-    if (!AMIGO_API_KEY) throw new Error('AMIGO_API_KEY is not configured');
+    if (!AMIGO_API_KEY) throw new Error('AMIGO_API_KEY is not configured in environment');
     
     const response = await fetch(`${AMIGO_BASE_URL}/data/`, {
       method: 'POST',
@@ -41,7 +36,7 @@ export const amigoApi = {
 
 export const flutterwaveApi = {
   async generateVirtualAccount(amount: number, email: string, name: string, txRef: string) {
-    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured');
+    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured in environment');
 
     const response = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
@@ -75,7 +70,7 @@ export const flutterwaveApi = {
   },
 
   async generateAgentStaticAccount(agentName: string, agentPhone: string) {
-    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured');
+    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured in environment');
 
     const response = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
