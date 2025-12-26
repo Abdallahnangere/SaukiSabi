@@ -2,24 +2,25 @@
 import { Network, Transaction, TransactionStatus, TransactionType } from '../types';
 
 const AMIGO_BASE_URL = process.env.AMIGO_BASE_URL || 'https://amigo.ng/api';
-const AMIGO_API_KEY = process.env.AMIGO_API_KEY || process.env.API_KEY; 
+const AMIGO_API_KEY = process.env.AMIGO_API_KEY; 
 
 const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
 const MY_BVN = process.env.MY_BVN;
 
 /**
  * PRODUCTION NOTE:
- * In a standard Vercel deployment, these keys should be used in /api serverless functions.
- * Calling them from the frontend is insecure as it exposes the SECRET_KEY.
- * This implementation uses the keys directly as requested for "production-ready files".
+ * The frontend calls these services. In a fully hardened production environment,
+ * secret keys should only be handled within the /api serverless functions.
  */
 
 export const amigoApi = {
   async deliverData(payload: { network: number; mobile_number: string; plan: number; Ported_number: boolean }) {
+    if (!AMIGO_API_KEY) throw new Error('AMIGO_API_KEY is not configured');
+    
     const response = await fetch(`${AMIGO_BASE_URL}/data/`, {
       method: 'POST',
       headers: {
-        'X-API-Key': AMIGO_API_KEY!,
+        'X-API-Key': AMIGO_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -36,6 +37,8 @@ export const amigoApi = {
 
 export const flutterwaveApi = {
   async generateVirtualAccount(amount: number, email: string, name: string, txRef: string) {
+    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured');
+
     const response = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
       headers: {
@@ -48,8 +51,8 @@ export const flutterwaveApi = {
         amount: amount,
         tx_ref: txRef,
         phonenumber: "09000000000",
-        firstname: name.split(' ')[0],
-        lastname: name.split(' ')[1] || 'User'
+        firstname: name.split(' ')[0] || 'Customer',
+        lastname: name.split(' ')[1] || 'Sauki'
       })
     });
 
@@ -68,6 +71,8 @@ export const flutterwaveApi = {
   },
 
   async generateAgentStaticAccount(agentName: string, agentPhone: string) {
+    if (!FLUTTERWAVE_SECRET_KEY) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured');
+
     const response = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
       headers: {
@@ -80,8 +85,8 @@ export const flutterwaveApi = {
         bvn: MY_BVN,
         tx_ref: `AGENT-${agentPhone}-${Date.now()}`,
         phonenumber: agentPhone,
-        firstname: agentName.split(' ')[0],
-        lastname: agentName.split(' ')[1] || 'Agent'
+        firstname: agentName.split(' ')[0] || 'Agent',
+        lastname: agentName.split(' ')[1] || 'Sauki'
       })
     });
 
