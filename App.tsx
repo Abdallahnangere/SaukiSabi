@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
-import { dbService } from './services/db';
+import { apiService } from './services/apiService';
 import { HomeView } from './views/Home';
 import { StoreView } from './views/Store';
 import { DataView } from './views/BuyData';
@@ -12,53 +12,74 @@ import { AppState } from './types';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
+  const [isUrlAdmin, setIsUrlAdmin] = useState(false);
   const [state, setState] = useState<AppState>({
-    products: dbService.getProducts(),
-    dataPlans: dbService.getDataPlans(),
-    agents: dbService.getAgents(),
-    transactions: dbService.getTransactions(),
+    products: [],
+    dataPlans: [],
+    agents: [],
+    transactions: [],
     currentAgent: null,
     isAdmin: false
   });
 
-  // Sync with local DB on any change
+  // URL-based routing for Admin
   useEffect(() => {
-    const interval = setInterval(() => {
-      setState(prev => ({
-        ...prev,
-        products: dbService.getProducts(),
-        dataPlans: dbService.getDataPlans(),
-        agents: dbService.getAgents(),
-        transactions: dbService.getTransactions()
-      }));
-    }, 2000);
+    const handlePathChange = () => {
+      if (window.location.pathname === '/admin') {
+        setIsUrlAdmin(true);
+      } else {
+        setIsUrlAdmin(false);
+      }
+    };
+
+    handlePathChange();
+    window.addEventListener('popstate', handlePathChange);
+    return () => window.removeEventListener('popstate', handlePathChange);
+  }, []);
+
+  // Fetch data from API/Neon
+  const refreshData = async () => {
+    const [products, plans, transactions, agents] = await Promise.all([
+      apiService.getProducts(),
+      apiService.getDataPlans(),
+      apiService.getTransactions(),
+      apiService.getAgents()
+    ]);
+    setState(prev => ({ ...prev, products, dataPlans: plans, transactions, agents }));
+  };
+
+  useEffect(() => {
+    refreshData();
+    const interval = setInterval(refreshData, 10000); // Poll every 10s for updates
     return () => clearInterval(interval);
   }, []);
 
+  if (isUrlAdmin) {
+    return (
+      <div className="bg-white min-h-screen">
+        <AdminView 
+          state={state} 
+          onStateChange={(newState) => {
+            setState(newState);
+            refreshData(); // Immediate sync on changes
+          }} 
+          onBack={() => {
+            window.history.pushState({}, '', '/');
+            setIsUrlAdmin(false);
+          }} 
+        />
+      </div>
+    );
+  }
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'home':
-        return <HomeView onNavigate={setActiveTab} />;
-      case 'store':
-        return <StoreView />;
-      case 'data':
-        return <DataView />;
-      case 'track':
-        return <TrackView />;
-      case 'agent':
-        return <AgentView 
-          state={state} 
-          onStateChange={setState} 
-          onOpenAdmin={() => setActiveTab('admin')} 
-        />;
-      case 'admin':
-        return <AdminView 
-          state={state} 
-          onStateChange={setState} 
-          onBack={() => setActiveTab('agent')} 
-        />;
-      default:
-        return <HomeView onNavigate={setActiveTab} />;
+      case 'home': return <HomeView onNavigate={setActiveTab} />;
+      case 'store': return <StoreView />;
+      case 'data': return <DataView />;
+      case 'track': return <TrackView />;
+      case 'agent': return <AgentView state={state} onStateChange={setState} onOpenAdmin={() => {}} />;
+      default: return <HomeView onNavigate={setActiveTab} />;
     }
   };
 

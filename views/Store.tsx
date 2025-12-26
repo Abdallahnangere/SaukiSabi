@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { dbService } from '../services/db';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/apiService';
 import { Product, TransactionType, TransactionStatus, Transaction } from '../types';
 import { AppleSheet } from '../components/AppleSheet';
 import { Check, Copy, Package, Truck, ShieldCheck, Download } from 'lucide-react';
@@ -8,7 +8,7 @@ import { flutterwaveApi } from '../services/api';
 import { Receipt } from '../components/Receipt';
 
 export const StoreView: React.FC = () => {
-  const [products] = useState<Product[]>(dbService.getProducts());
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [step, setStep] = useState<'details' | 'order' | 'pay' | 'success'>('details');
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
@@ -18,6 +18,10 @@ export const StoreView: React.FC = () => {
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
   const [isCopied, setIsCopied] = useState(false);
 
+  useEffect(() => {
+    apiService.getProducts().then(setProducts);
+  }, []);
+
   const handleBuy = () => setStep('order');
 
   const handleProceedToPay = async () => {
@@ -26,7 +30,6 @@ export const StoreView: React.FC = () => {
     setLoading(true);
     try {
       const txRef = `SM-PROD-${Date.now()}`;
-      // REAL Flutterwave Call
       const pInfo = await flutterwaveApi.generateVirtualAccount(
         selectedProduct!.price, 
         `${form.phone}@saukimart.com`, 
@@ -51,7 +54,7 @@ export const StoreView: React.FC = () => {
           bankName: pInfo.bank_name
         }
       };
-      dbService.saveTransaction(tx);
+      await apiService.saveTransaction(tx);
       setLastTransaction(tx);
       setStep('pay');
     } catch (err: any) {
@@ -63,11 +66,10 @@ export const StoreView: React.FC = () => {
 
   const handlePaymentDone = () => {
     setLoading(true);
-    // Real flow would wait for webhook, here we poll or check status
     setTimeout(() => {
       if (lastTransaction) {
         const updated = { ...lastTransaction, status: TransactionStatus.SUCCESSFUL };
-        dbService.saveTransaction(updated);
+        apiService.saveTransaction(updated);
         setLastTransaction(updated);
       }
       setLoading(false);
@@ -82,13 +84,13 @@ export const StoreView: React.FC = () => {
   };
 
   return (
-    <div className="px-6 mt-6 space-y-6 animate-in fade-in duration-700">
+    <div className="px-6 mt-6 space-y-6 animate-in fade-in duration-700 pb-24 h-full overflow-y-auto">
       <div className="space-y-1">
         <h2 className="text-3xl font-black tracking-tighter text-[#1d1d1f]">Hardware</h2>
         <p className="text-gray-400 font-medium text-xs uppercase tracking-widest">Official MTN Partner</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {products.map((product) => (
           <button
             key={product.id}
@@ -106,9 +108,14 @@ export const StoreView: React.FC = () => {
               />
             </div>
             <h3 className="text-xs font-black text-[#1d1d1f] px-1 line-clamp-1">{product.name}</h3>
-            <p className="text-[10px] font-bold text-blue-500 px-1">₦{product.price.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-[#0071e3] px-1">₦{product.price.toLocaleString()}</p>
           </button>
         ))}
+        {products.length === 0 && (
+          <div className="col-span-2 py-20 text-center text-gray-300 font-bold uppercase tracking-widest text-xs">
+            Catalog is empty. Add devices in Admin.
+          </div>
+        )}
       </div>
 
       <AppleSheet 
@@ -133,7 +140,7 @@ export const StoreView: React.FC = () => {
                 </div>
                 <button
                   onClick={handleBuy}
-                  className="w-full bg-[#0071e3] text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-95"
+                  className="w-full bg-[#0071e3] text-white py-5 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform"
                 >
                   Buy Now
                 </button>
@@ -164,6 +171,11 @@ export const StoreView: React.FC = () => {
                     placeholder="State"
                     className="w-full bg-gray-50 border-0 rounded-2xl p-5 text-lg font-bold outline-none" 
                   />
+                </div>
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                   <p className="text-[10px] text-blue-600 font-bold leading-relaxed text-center">
+                     Hardware delivery is FREE. Expect arrival within 24-48 hours.
+                   </p>
                 </div>
                 <button
                   onClick={handleProceedToPay}

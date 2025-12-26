@@ -9,7 +9,6 @@ export const COLORS = {
 };
 
 export const IMAGES = {
-  // Local assets mapped to root directory
   MTN: './mtn.png',
   AIRTEL: './airtel.png',
   GLO: './glo.png',
@@ -23,5 +22,6 @@ export const CONTACTS = {
   EMAIL: 'saukidatalinks@gmail.com',
   PHONE1: '+2349024099561',
   PHONE2: '+2348164135836',
-  WHATSAPP: 'https://wa.me/2349024099561'
+  WHATSAPP1: 'https://wa.me/2349024099561',
+  WHATSAPP2: 'https://wa.me/2348164135836'
 };

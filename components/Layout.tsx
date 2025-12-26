@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Home, ShoppingBag, Wifi, User, History } from 'lucide-react';
-import { IMAGES } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,22 +9,21 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
+  // Admin is removed from the tab bar for security
   const tabs = [
     { id: 'home', icon: Home, label: 'Explore' },
     { id: 'store', icon: ShoppingBag, label: 'Store' },
     { id: 'data', icon: Wifi, label: 'Data' },
     { id: 'track', icon: History, label: 'Status' },
-    { id: 'agent', icon: User, label: 'Account' },
+    { id: 'agent', icon: User, label: 'Agent' },
   ];
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-[#f5f5f7] relative overflow-hidden font-sans">
-      {/* Immersive Main Content */}
       <main className="flex-1 relative overflow-hidden">
         {children}
       </main>
 
-      {/* Premium Apple-style Tab Bar */}
       <nav className="flex-shrink-0 apple-blur bg-white/70 border-t border-gray-100 safe-bottom z-[100] h-20 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
         <div className="flex justify-around items-center h-full pb-2">
           {tabs.map((tab) => {
