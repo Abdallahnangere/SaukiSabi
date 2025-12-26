@@ -1,4 +1,3 @@
-
 import { Network, Transaction, TransactionStatus, TransactionType } from '../types';
 
 /**
@@ -6,21 +5,33 @@ import { Network, Transaction, TransactionStatus, TransactionType } from '../typ
  * to handle CORS and protect secret keys.
  */
 
+// Helper to safely parse responses, even if they are HTML error pages
+const safeFetch = async (url: string, options: RequestInit) => {
+  const response = await fetch(url, options);
+  const text = await response.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    // If we can't parse JSON, it's likely a server 500 error page or plain text
+    throw new Error(`Server Error (${response.status}): ${text.substring(0, 100)}...`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || data.error || `Request failed with status ${response.status}`);
+  }
+
+  return data;
+};
+
 export const amigoApi = {
   async deliverData(payload: { network: number; mobile_number: string; plan: number; Ported_number: boolean }) {
-    // This routes to our internal API which then calls Amigo
-    const response = await fetch('/api/data', {
+    return safeFetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Delivery failed');
-    }
-    
-    return await response.json();
   }
 };
 
@@ -34,18 +45,10 @@ export const flutterwaveApi = {
     details: string;
     type: string;
   }) {
-    // Calling our internal proxy instead of Flutterwave directly
-    const response = await fetch('/api/pay', {
+    return safeFetch('/api/pay', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params)
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Payment initialization failed');
-    }
-
-    return await response.json();
   }
 };
