@@ -5,8 +5,9 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   
   try {
-    // Drop and Recreate tables for a clean slate
-    // WARNING: This clears data. Use carefully in production.
+    console.log("[SEED] Initializing Database Schema...");
+
+    // Transactions Table
     await sql`CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY,
       reference TEXT UNIQUE NOT NULL,
@@ -19,6 +20,7 @@ export default async function handler(req: any, res: any) {
       paymentDetails JSONB
     )`;
 
+    // Products Table
     await sql`CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -29,6 +31,7 @@ export default async function handler(req: any, res: any) {
       inStock BOOLEAN DEFAULT true
     )`;
 
+    // Data Plans Table
     await sql`CREATE TABLE IF NOT EXISTS data_plans (
       id TEXT PRIMARY KEY,
       network TEXT NOT NULL,
@@ -39,6 +42,7 @@ export default async function handler(req: any, res: any) {
       isActive BOOLEAN DEFAULT true
     )`;
 
+    // Agents Table
     await sql`CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       fullName TEXT NOT NULL,
@@ -49,8 +53,11 @@ export default async function handler(req: any, res: any) {
       virtualAccount JSONB
     )`;
 
-    return sendJson(res, 200, { success: true, message: "A-Z Backend Initialized." });
+    return sendJson(res, 200, { 
+      success: true, 
+      message: "Database tables verified/created successfully." 
+    });
   } catch (err: any) {
-    return reportError(res, err, "Seeder");
+    return reportError(res, err, "DatabaseSeeder");
   }
 }

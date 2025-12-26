@@ -1,34 +1,40 @@
 
 import { neon, neonConfig } from '@neondatabase/serverless';
 
-// Essential for serverless stability
+// Improve stability in serverless environments
 neonConfig.fetchConnectionCache = true;
 
 const connectionString = process.env.DATABASE_URL;
 
 /**
- * Returns a Neon SQL instance or null if not configured.
- * This prevents the entire server from crashing on boot.
+ * Returns a Neon SQL instance or null.
+ * Strictly prevents crashing the process on missing config.
  */
 export const getSql = () => {
-  if (!connectionString) {
-    console.error("CRITICAL: DATABASE_URL is not defined in environment variables.");
+  if (!connectionString || connectionString.trim() === "") {
     return null;
   }
-  return neon(connectionString);
+  try {
+    return neon(connectionString);
+  } catch (e) {
+    console.error("Failed to initialize Neon client:", e);
+    return null;
+  }
 };
 
 /**
- * Executes SQL with a safety wrapper.
+ * Executes SQL only if database is configured.
  */
 export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
   const db = getSql();
-  if (!db) throw new Error("Database connection not configured.");
+  if (!db) {
+    throw new Error("DATABASE_URL is missing or invalid. Check your environment variables.");
+  }
   return await db(strings, ...values);
 };
 
 /**
- * Ensures we always return JSON, even in a total crash.
+ * Ensures a standard JSON response is sent.
  */
 export const sendJson = (res: any, status: number, data: any) => {
   res.setHeader('Content-Type', 'application/json');
@@ -36,7 +42,7 @@ export const sendJson = (res: any, status: number, data: any) => {
 };
 
 /**
- * Robustly parses request body for Vercel environments.
+ * Robustly parses the request body.
  */
 export const getBody = (req: any) => {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -48,13 +54,15 @@ export const getBody = (req: any) => {
 };
 
 /**
- * Standard error logger and responder.
+ * Global Error Handler for API routes.
  */
 export const reportError = (res: any, error: any, context: string) => {
-  console.error(`[${context} ERROR]:`, error.message || error);
+  const message = error.message || "Unknown Server Error";
+  console.error(`[API ERROR][${context}]:`, message);
   return sendJson(res, 500, {
     success: false,
-    error: error.message || "Unknown Server Error",
-    context
+    error: message,
+    context: context,
+    help: "Ensure DATABASE_URL and FLUTTERWAVE_SECRET_KEY are set in Vercel."
   });
 };
