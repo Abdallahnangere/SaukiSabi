@@ -6,11 +6,13 @@ const API_BASE = '/api';
 const handleResponse = async (res: Response) => {
   const text = await res.text();
   let data;
+  
   try {
     data = JSON.parse(text);
   } catch (e) {
-    // If we get a 404, it might be the HTML of a 404 page. Log the first bit to see what it is.
-    throw new Error(`Critical Server Failure: ${res.status} - ${res.statusText || 'Not Found'}. Body: ${text.substring(0, 100)}`);
+    // If we can't parse JSON, it's likely a 404/500 HTML page or a plain text error
+    const snippet = text.substring(0, 150).replace(/<[^>]*>?/gm, '');
+    throw new Error(`Sync Error (${res.status}): ${res.statusText || 'Unknown'}. Detail: ${snippet}...`);
   }
   
   if (!res.ok) {
