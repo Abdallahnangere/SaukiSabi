@@ -5,12 +5,15 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { amount, email, name, txRef, phone, details, type } = getSafeBody(req);
+    const body = getSafeBody(req);
+    const { amount, email, name, txRef, phone, details, type } = body;
     const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
 
-    if (!secretKey) throw new Error("Server Configuration Error: Flutterwave Key is missing.");
+    if (!secretKey) {
+      return res.status(500).json({ error: "Flutterwave Secret Key is not configured on the server." });
+    }
 
-    // 1. Call Flutterwave from the Backend (No CORS issues here)
+    // 1. Generate Virtual Account from Flutterwave
     const fwResponse = await fetch('https://api.flutterwave.com/v3/virtual-account-numbers', {
       method: 'POST',
       headers: {
@@ -18,21 +21,23 @@ export default async function handler(req: any, res: any) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email,
+        email: email || 'customer@saukimart.com',
         is_permanent: false,
         amount,
         tx_ref: txRef,
         phonenumber: phone,
-        firstname: name.split(' ')[0] || 'Customer',
-        lastname: name.split(' ')[1] || 'Sauki'
+        firstname: name ? name.split(' ')[0] : 'Sauki',
+        lastname: name && name.split(' ').length > 1 ? name.split(' ')[1] : 'Customer'
       })
     });
 
     const fwData = await fwResponse.json();
 
     if (!fwResponse.ok) {
-      console.error("Flutterwave API Error:", fwData);
-      return res.status(400).json({ error: fwData.message || "Failed to generate payment account" });
+      console.error("FW API Error Details:", fwData);
+      return res.status(400).json({ 
+        error: fwData.message || "Flutterwave could not generate an account. Please try again later." 
+      });
     }
 
     const pInfo = {
@@ -42,14 +47,19 @@ export default async function handler(req: any, res: any) {
       amount: amount
     };
 
-    // 2. Save the transaction to the database automatically
+    // 2. Persist transaction to database
     const txId = `tx_${Date.now()}`;
     const timestamp = Date.now();
     
-    await sql`
-      INSERT INTO transactions (id, reference, type, amount, status, timestamp, phone, details, paymentDetails)
-      VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${timestamp}, ${phone}, ${details}, ${JSON.stringify(pInfo)})
-    `;
+    try {
+      await sql`
+        INSERT INTO transactions (id, reference, type, amount, status, timestamp, phone, details, paymentDetails)
+        VALUES (${txId}, ${txRef}, ${type}, ${amount}, 'PENDING', ${timestamp}, ${phone}, ${details}, ${JSON.stringify(pInfo)})
+      `;
+    } catch (dbErr: any) {
+      console.error("DB Insert Failed during payment:", dbErr);
+      // We still return pInfo so the user can pay, even if DB logging failed temporarily
+    }
 
     return res.status(200).json(pInfo);
   } catch (error: any) {
