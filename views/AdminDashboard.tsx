@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { AppState, TransactionStatus, DataPlan, Network, Product } from '../types';
+import { AppState, TransactionStatus, DataPlan, Network, Product, Agent } from '../types';
 import { apiService } from '../services/apiService';
-import { ChevronLeft, Plus, Trash2, Edit2, ShieldAlert, Check, X, LogOut, Package, Wifi, Users, ListFilter } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Edit2, ShieldAlert, Check, X, LogOut, Package, Wifi, Users, ListFilter, UserCheck, UserX } from 'lucide-react';
 
 interface AdminViewProps {
   state: AppState;
@@ -13,23 +13,48 @@ interface AdminViewProps {
 export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBack }) => {
   const [activeTab, setActiveTab] = useState<'plans' | 'products' | 'agents' | 'tx'>('plans');
   const [isAdding, setIsAdding] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Forms
   const [planForm, setPlanForm] = useState<Partial<DataPlan>>({ network: 'MTN', size: '', price: 0, planId: 0 });
   const [prodForm, setProdForm] = useState<Partial<Product>>({ name: '', price: 0, description: '', inStock: true });
 
   const handleSavePlan = async () => {
-    const plan = { ...planForm, id: `plan_${Date.now()}`, validity: '30 Days' } as DataPlan;
-    await apiService.saveDataPlan(plan);
-    setIsAdding(false);
-    onBack(); // Refresh via parent
+    setLoading(true);
+    try {
+      const plan = { ...planForm, id: `plan_${Date.now()}`, validity: '30 Days' } as DataPlan;
+      await apiService.saveDataPlan(plan);
+      setIsAdding(false);
+      // We don't onBack here, we just stay in admin and let the parent refresh
+    } catch (e) {
+      alert("Save failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveProduct = async () => {
-    const prod = { ...prodForm, id: `prod_${Date.now()}`, specifications: [], imageUrl: 'router.png' } as Product;
-    await apiService.updateProduct(prod);
-    setIsAdding(false);
-    onBack();
+    setLoading(true);
+    try {
+      const prod = { ...prodForm, id: `prod_${Date.now()}`, specifications: [], imageUrl: '/router.png' } as Product;
+      await apiService.updateProduct(prod);
+      setIsAdding(false);
+    } catch (e) {
+      alert("Save failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAgentStatus = async (agent: Agent, status: 'APPROVED' | 'DECLINED') => {
+    setLoading(true);
+    try {
+      await apiService.saveAgent({ ...agent, status });
+    } catch (e) {
+      alert("Update failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,7 +87,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
         ))}
       </nav>
 
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto pb-24">
         {activeTab === 'plans' && (
           <div className="space-y-4">
             <button onClick={() => setIsAdding(true)} className="w-full bg-blue-50 text-[#0071e3] border-2 border-dashed border-blue-200 py-6 rounded-[2rem] font-black flex items-center justify-center">
@@ -80,6 +105,50 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
           </div>
         )}
 
+        {activeTab === 'agents' && (
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <Users size={16} className="text-[#0071e3]" />
+              <p className="label-caps">Agent Applications</p>
+            </div>
+            {state.agents.map(agent => (
+              <div key={agent.id} className="bg-white p-6 rounded-[1.8rem] shadow-sm space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-black text-[#1d1d1f] text-lg">{agent.fullName}</h4>
+                    <p className="text-xs font-bold text-gray-400">{agent.phone}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${
+                    agent.status === 'APPROVED' ? 'bg-green-100 text-green-600' : 
+                    agent.status === 'PENDING' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
+                  }`}>
+                    {agent.status}
+                  </span>
+                </div>
+                {agent.status === 'PENDING' && (
+                  <div className="flex space-x-2 pt-2">
+                    <button 
+                      onClick={() => handleAgentStatus(agent, 'APPROVED')}
+                      className="flex-1 bg-green-500 text-white py-3 rounded-xl text-xs font-black flex items-center justify-center space-x-2"
+                    >
+                      <UserCheck size={14} /> <span>APPROVE</span>
+                    </button>
+                    <button 
+                      onClick={() => handleAgentStatus(agent, 'DECLINED')}
+                      className="flex-1 bg-red-50 text-red-500 py-3 rounded-xl text-xs font-black flex items-center justify-center space-x-2"
+                    >
+                      <UserX size={14} /> <span>DECLINE</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {state.agents.length === 0 && (
+              <div className="text-center py-20 text-gray-300 font-black uppercase tracking-widest text-xs">No agents found.</div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'products' && (
           <div className="space-y-4">
              <button onClick={() => setIsAdding(true)} className="w-full bg-[#1d1d1f] text-white py-6 rounded-[2rem] font-black flex items-center justify-center">
@@ -93,6 +162,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
                   <p className="text-sm font-black text-[#0071e3]">₦{prod.price.toLocaleString()}</p>
                 </div>
                 <button className="text-gray-300"><Edit2 size={20} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'tx' && (
+          <div className="space-y-4">
+            {state.transactions.map(tx => (
+              <div key={tx.id} className="bg-white p-6 rounded-[1.8rem] shadow-sm flex justify-between items-center">
+                 <div>
+                    <h4 className="font-black text-[#1d1d1f]">{tx.details}</h4>
+                    <p className="text-[10px] text-gray-400 font-bold">{tx.phone} • {new Date(tx.timestamp).toLocaleDateString()}</p>
+                 </div>
+                 <div className="text-right">
+                    <p className="font-black text-[#0071e3]">₦{tx.amount.toLocaleString()}</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-green-500">{tx.status}</p>
+                 </div>
               </div>
             ))}
           </div>
@@ -123,7 +209,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ state, onStateChange, onBa
 
             <div className="flex space-x-4">
               <button onClick={() => setIsAdding(false)} className="flex-1 py-5 bg-gray-100 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
-              <button onClick={activeTab === 'plans' ? handleSavePlan : handleSaveProduct} className="flex-1 py-5 bg-[#0071e3] text-white rounded-2xl font-black uppercase text-xs tracking-widest">Save Change</button>
+              <button 
+                onClick={activeTab === 'plans' ? handleSavePlan : handleSaveProduct} 
+                disabled={loading}
+                className="flex-1 py-5 bg-[#0071e3] text-white rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50"
+              >
+                {loading ? 'SAVING...' : 'Save Change'}
+              </button>
             </div>
           </div>
         </div>

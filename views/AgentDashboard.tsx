@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { AppState, Agent, TransactionType, TransactionStatus } from '../types';
 import { AppleSheet } from '../components/AppleSheet';
-import { UserPlus, Wallet, RefreshCw, Send, CheckCircle2, ShieldCheck, Settings } from 'lucide-react';
-import { dbService } from '../services/db';
+import { UserPlus, Wallet, RefreshCw, Send, CheckCircle2, ShieldCheck, Settings, Loader2 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface AgentViewProps {
   state: AppState;
@@ -18,18 +18,25 @@ export const AgentView: React.FC<AgentViewProps> = ({ state, onStateChange, onOp
   const [loginPin, setLoginPin] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleOnboard = () => {
+  const handleOnboard = async () => {
     if (!form.fullName || !form.phone || !form.pin) return alert('All fields required');
-    const newAgent: Agent = {
-      id: `agent_${Date.now()}`,
-      fullName: form.fullName,
-      phone: form.phone,
-      pin: form.pin,
-      status: 'PENDING',
-      walletBalance: 0
-    };
-    dbService.saveAgent(newAgent);
-    setView('pending');
+    setLoading(true);
+    try {
+      const newAgent: Agent = {
+        id: `agent_${Date.now()}`,
+        fullName: form.fullName,
+        phone: form.phone,
+        pin: form.pin,
+        status: 'PENDING',
+        walletBalance: 0
+      };
+      await apiService.saveAgent(newAgent);
+      setView('pending');
+    } catch (e) {
+      alert("Application failed to send. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = () => {
@@ -42,21 +49,25 @@ export const AgentView: React.FC<AgentViewProps> = ({ state, onStateChange, onOp
     setView('dashboard');
   };
 
-  const handleCreateVirtualAccount = () => {
+  const handleCreateVirtualAccount = async () => {
+    if (!state.currentAgent) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
       const updatedAgent = {
-        ...state.currentAgent!,
+        ...state.currentAgent,
         virtualAccount: {
           bankName: 'Sterling Bank',
           accountNumber: '00' + Math.floor(10000000 + Math.random() * 90000000).toString(),
-          accountName: `SAUKI / ${state.currentAgent!.fullName}`
+          accountName: `SAUKI / ${state.currentAgent.fullName}`
         }
       };
-      dbService.saveAgent(updatedAgent);
+      await apiService.saveAgent(updatedAgent);
       onStateChange({ ...state, currentAgent: updatedAgent });
+    } catch (e) {
+      alert("Failed to create account");
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   if (view === 'dashboard' && state.currentAgent) {
@@ -121,20 +132,10 @@ export const AgentView: React.FC<AgentViewProps> = ({ state, onStateChange, onOp
             disabled={loading}
             className="w-full bg-white rounded-[2rem] p-8 border-2 border-dashed border-gray-200 text-gray-400 flex flex-col items-center space-y-3"
           >
-            <Wallet size={32} />
+            {loading ? <Loader2 className="animate-spin" size={32} /> : <Wallet size={32} />}
             <span className="font-bold">{loading ? 'Creating...' : 'Create Funding Account'}</span>
           </button>
         )}
-        
-        {/* Admin Link for Demo */}
-        <div className="pt-8 border-t border-gray-100">
-           <button 
-            onClick={onOpenAdmin}
-            className="w-full bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold"
-           >
-            Go to Admin Panel (For Demo)
-           </button>
-        </div>
       </div>
     );
   }
@@ -155,7 +156,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ state, onStateChange, onOp
   }
 
   return (
-    <div className="px-6 mt-6 space-y-12">
+    <div className="px-6 mt-6 space-y-12 pb-24 h-full overflow-y-auto no-scrollbar">
       <div className="space-y-1">
         <h2 className="text-3xl font-bold tracking-tight text-[#1d1d1f]">Agents</h2>
         <p className="text-gray-500">Sell data and earn commissions.</p>
@@ -231,9 +232,10 @@ export const AgentView: React.FC<AgentViewProps> = ({ state, onStateChange, onOp
           </div>
           <button 
             onClick={handleOnboard}
+            disabled={loading}
             className="w-full bg-[#1d1d1f] text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95"
           >
-            Submit Application
+            {loading ? 'Submitting...' : 'Submit Application'}
           </button>
         </div>
       </AppleSheet>

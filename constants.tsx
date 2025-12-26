@@ -9,13 +9,13 @@ export const COLORS = {
 };
 
 export const IMAGES = {
-  MTN: './mtn.png',
-  AIRTEL: './airtel.png',
-  GLO: './glo.png',
-  SMEDAN: './smedan.png',
-  COAT: './coat.png',
-  ROUTER: './router.png',
-  MIFI: './mifi.png'
+  MTN: '/mtn.png',
+  AIRTEL: '/airtel.png',
+  GLO: '/glo.png',
+  SMEDAN: '/smedan.png',
+  COAT: '/coat.png',
+  ROUTER: '/router.png',
+  MIFI: '/mifi.png'
 };
 
 export const CONTACTS = {

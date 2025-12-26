@@ -31,11 +31,12 @@ export const apiService = {
   },
 
   async saveDataPlan(plan: DataPlan): Promise<void> {
-    await fetch(`${API_BASE}/plans`, {
+    const res = await fetch(`${API_BASE}/plans`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(plan)
     });
+    if (!res.ok) throw new Error('Failed to save data plan');
   },
 
   async deleteDataPlan(id: string): Promise<void> {
@@ -68,5 +69,14 @@ export const apiService = {
     const res = await fetch(`${API_BASE}/agents`);
     if (!res.ok) return [];
     return await res.json();
+  },
+
+  async saveAgent(agent: Agent): Promise<void> {
+    const res = await fetch(`${API_BASE}/agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(agent)
+    });
+    if (!res.ok) throw new Error('Failed to save agent');
   }
 };
