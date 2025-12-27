@@ -1,68 +1,79 @@
 
 import { neon, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 
-// Improve stability in serverless environments
+/**
+ * DATABASE CORE - HARMONIZED
+ */
+if (!neonConfig.webSocketConstructor) {
+  neonConfig.webSocketConstructor = ws;
+}
 neonConfig.fetchConnectionCache = true;
 
 const connectionString = process.env.DATABASE_URL;
 
-/**
- * Returns a Neon SQL instance or null.
- * Strictly prevents crashing the process on missing config.
- */
 export const getSql = () => {
-  if (!connectionString || connectionString.trim() === "") {
-    return null;
-  }
+  if (!connectionString) return null;
   try {
     return neon(connectionString);
   } catch (e) {
-    console.error("Failed to initialize Neon client:", e);
+    console.error("[DB] Init Error:", e);
     return null;
   }
 };
 
-/**
- * Executes SQL only if database is configured.
- */
 export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
   const db = getSql();
-  if (!db) {
-    throw new Error("DATABASE_URL is missing or invalid. Check your environment variables.");
-  }
+  if (!db) throw new Error("Missing DATABASE_URL");
   return await db(strings, ...values);
 };
 
-/**
- * Ensures a standard JSON response is sent.
- */
-export const sendJson = (res: any, status: number, data: any) => {
+// Standardized JSON Response
+export const jsonResponse = (res: any, status: number, data: any) => {
   res.setHeader('Content-Type', 'application/json');
   return res.status(status).json(data);
 };
 
-/**
- * Robustly parses the request body.
- */
-export const getBody = (req: any) => {
+// Add sendJson alias to support existing code
+export const sendJson = jsonResponse;
+
+// Helper to catch and format API errors as JSON
+export const catchApi = async (res: any, fn: () => Promise<any>, context: string) => {
+  try {
+    return await fn();
+  } catch (err: any) {
+    console.error(`[API ERROR][${context}]:`, err.message);
+    let help = "Check server logs for details.";
+    if (err.message.includes('relation') && err.message.includes('does not exist')) {
+      help = "Schema missing. Please run the 'Seed' action.";
+    }
+    return jsonResponse(res, 500, {
+      success: false,
+      error: err.message || "Internal Server Error",
+      context,
+      help
+    });
+  }
+};
+
+// Body parsing utility
+export const getSafeBody = (req: any) => {
   if (req.body && typeof req.body === 'object') return req.body;
   try {
     return req.body ? JSON.parse(req.body) : {};
-  } catch (e) {
+  } catch {
     return {};
   }
 };
 
-/**
- * Global Error Handler for API routes.
- */
+// Add getBody alias to support existing code
+export const getBody = getSafeBody;
+
+// Standardized error reporter
 export const reportError = (res: any, error: any, context: string) => {
-  const message = error.message || "Unknown Server Error";
-  console.error(`[API ERROR][${context}]:`, message);
-  return sendJson(res, 500, {
-    success: false,
-    error: message,
-    context: context,
-    help: "Ensure DATABASE_URL and FLUTTERWAVE_SECRET_KEY are set in Vercel."
+  console.error(`[${context}] Error:`, error);
+  return jsonResponse(res, 500, { 
+    error: error.message || "Internal Server Error", 
+    context 
   });
 };

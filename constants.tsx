@@ -9,6 +9,7 @@ export const COLORS = {
 };
 
 export const IMAGES = {
+  LOGO: '/logo.png',
   MTN: '/mtn.png',
   AIRTEL: '/airtel.png',
   GLO: '/glo.png',

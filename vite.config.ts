@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:3000', // Assumes vercel dev is running on 3000
+          target: 'http://localhost:3000',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '/api'),
+          secure: false,
         },
       },
     },

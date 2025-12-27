@@ -9,6 +9,7 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-tap-highlight-color: transparent;
     background-color: #f5f5f7;
+    overscroll-behavior: none;
   }
   
   body {
@@ -16,14 +17,18 @@
   }
 
   button, a {
-    @apply transition-all duration-200 active:scale-95 cursor-pointer;
+    @apply transition-all duration-300 active:scale-95 cursor-pointer select-none;
+  }
+
+  input {
+    @apply appearance-none;
   }
 }
 
 @layer components {
   /* Apple-style Blur effect */
   .apple-blur {
-    @apply backdrop-blur-3xl bg-white/70 border-t border-white/20;
+    @apply backdrop-blur-[40px] bg-white/80 border-t border-white/40;
   }
 
   /* Safe areas for modern mobile devices */
@@ -43,16 +48,20 @@
 
   /* Premium Card Style */
   .premium-card {
-    @apply bg-white rounded-[2.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden;
+    @apply bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-gray-100/50 overflow-hidden;
   }
 
   /* Typography shortcuts */
   .title-lg {
-    @apply text-4xl font-black tracking-tighter leading-none;
+    @apply text-[2.5rem] font-black tracking-[-0.05em] leading-[0.9] text-apple-black;
   }
 
   .label-caps {
-    @apply text-[10px] font-black uppercase tracking-[0.2em] text-[#86868b];
+    @apply text-[10px] font-black uppercase tracking-[0.25em] text-[#86868b];
+  }
+
+  .glass-card {
+    @apply bg-white/40 backdrop-blur-xl border border-white/60 shadow-sm;
   }
 }
 
@@ -60,4 +69,14 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
 }
